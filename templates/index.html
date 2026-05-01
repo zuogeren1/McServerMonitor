@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MC Server Monitor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23333'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-size='40'%3E%E2%A0%AE%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- Inline SVG Icons -->
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <symbol id="icon-cube" viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 12L3 7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12l9-5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12v10" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v11a1 1 0 01-1 1H4a1 1 0 01-1-1V10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 21V12h6v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="6" r="1" fill="currentColor"/><rect x="2" y="14" width="20" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="18" r="1" fill="currentColor"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="icon-overview" viewBox="0 0 24 24"><rect x="2" y="2" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="2" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="2" y="13" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="13" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 17v-6M12 7v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-players" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14 18c0-2 2-4 4-4s4 2 4 4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="icon-backup" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M3 21h18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 17l5-7 4 3 5-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6v6l4 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M16 3l5 5-12 12H4v-5L16 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></symbol>
+    <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 22l-4-7-6-3 18-6-6 18-3-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-chevron-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <svg class="svg-icon logo-icon" style="width:28px;height:28px;color:var(--accent);"><use href="#icon-cube"/></svg>
+    <h2>MC Monitor</h2>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" data-page="home" data-tooltip="首页">
+      <span class="nav-icon"><svg class="svg-icon"><use href="#icon-home"/></svg></span>
+      <span class="nav-label">首页</span>
+    </div>
+    <div class="nav-item" data-page="servers" data-tooltip="服务器">
+      <span class="nav-icon"><svg class="svg-icon"><use href="#icon-server"/></svg></span>
+      <span class="nav-label">服务器</span>
+    </div>
+    <div class="nav-item" data-page="players" data-tooltip="玩家">
+      <span class="nav-icon"><svg class="svg-icon"><use href="#icon-players"/></svg></span>
+      <span class="nav-label">玩家</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav-item" data-page="admin" data-tooltip="管理">
+      <span class="nav-icon"><svg class="svg-icon"><use href="#icon-settings"/></svg></span>
+      <span class="nav-label">管理</span>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="toggle-btn" id="sidebarToggle" title="折叠侧边栏">
+      <span class="toggle-icon"><svg class="svg-icon"><use href="#icon-chevron-left"/></svg></span>
+      <span class="toggle-label">收起侧边栏</span>
+    </button>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<div class="main" id="main">
+
+  <!-- Home Page -->
+  <div class="page active" id="page-home">
+    <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-overview"/></svg> 概览</h2></div>
+    <div class="stats-bar">
+      <div class="stat-box"><div class="stat-num" id="totalServers">0</div><div class="stat-label">服务器总数</div></div>
+      <div class="stat-box"><div class="stat-num online-count" id="onlineServers">0</div><div class="stat-label">在线服务器</div></div>
+    </div>
+    <div class="card-grid" id="homeCards"></div>
+    <div class="empty-note" id="homeEmpty">暂无服务器，前往 <a onclick="switchPage('admin')">管理页面</a> 添加</div>
+  </div>
+
+  <!-- Servers Page -->
+  <div class="page" id="page-servers">
+    <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-server"/></svg> 服务器列表</h2></div>
+    <div class="card-grid" id="serverCards"></div>
+    <div class="empty-note" id="serversEmpty">暂无服务器，前往 <a onclick="switchPage('admin')">管理页面</a> 添加</div>
+  </div>
+
+  <!-- Players Page -->
+  <div class="page" id="page-players">
+    <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-players"/></svg> 玩家列表</h2></div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm active-filter" data-filter="all">全部</button>
+      <button class="btn btn-outline btn-sm" data-filter="online">在线</button>
+      <button class="btn btn-outline btn-sm" data-filter="offline">离线</button>
+      <span style="flex:1;"></span>
+      <select id="playerSort" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.3rem 0.5rem;font-size:0.8rem;">
+        <option value="name">排序: A-Z</option>
+        <option value="last_seen">排序: 上次在线</option>
+        <option value="total_time">排序: 在线总时长</option>
+      </select>
+    </div>
+    <div id="playerListContainer" style="display:flex;flex-direction:column;gap:0.4rem;"></div>
+    <div class="empty-note" id="playersEmpty">暂无玩家数据</div>
+  </div>
+
+  <!-- Player Detail Page -->
+  <div class="page" id="page-player-detail">
+    <div class="detail-header">
+      <button class="back-btn" onclick="goBackFromPlayerDetail()">
+        <svg class="svg-icon sm"><use href="#icon-arrow-left"/></svg> 返回
+      </button>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <img id="pdAvatar" src="" alt="" style="width:40px;height:40px;border-radius:4px;" onerror="this.style.display='none'">
+        <div>
+          <span class="detail-title" id="pdName">玩家详情</span>
+          <span class="status-tag" id="pdStatusTag" style="margin-left:0.5rem;">离线</span>
+        </div>
+      </div>
+    </div>
+    <div class="detail-panels" style="margin-bottom:1rem;">
+      <div class="panel">
+        <h4><svg class="svg-icon sm"><use href="#icon-info"/></svg> 基本信息</h4>
+        <div class="info-row"><span class="lbl">名称</span><span class="val" id="pdName2">--</span></div>
+        <div class="info-row"><span class="lbl">UUID</span><span class="val" id="pdUuid" style="font-family:'Consolas','Courier New',monospace;font-size:0.75rem;">--</span></div>
+        <div class="info-row"><span class="lbl">状态</span><span class="val" id="pdOnline">--</span></div>
+        <div class="info-row"><span class="lbl">总在线时长</span><span class="val" id="pdTotalTime">--</span></div>
+        <div class="info-row"><span class="lbl">首次出现</span><span class="val" id="pdFirstSeen">--</span></div>
+      </div>
+      <div class="panel">
+        <h4><svg class="svg-icon sm"><use href="#icon-server"/></svg> 最近服务器</h4>
+        <div id="pdCurrentServer" style="margin-bottom:0.5rem;"></div>
+        <div id="pdRecentServers"></div>
+        <div class="empty-note" style="margin-top:0.25rem;" id="pdServersEmpty">暂无记录</div>
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:1.5rem;">
+      <h4><svg class="svg-icon sm"><use href="#icon-clock"/></svg> 在线时段分布 (0-23时)</h4>
+      <div style="height:220px;"><canvas id="pdHourlyChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Admin Page -->
+  <div class="page" id="page-admin">
+    <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-settings"/></svg> 管理</h2></div>
+    <div class="admin-section">
+      <h3><svg class="svg-icon"><use href="#icon-clock"/></svg> 检测间隔</h3>
+      <div class="form-row" style="align-items:flex-end;">
+        <div class="form-group" style="max-width:200px;">
+          <label>间隔 (秒)</label>
+          <input type="number" id="intervalInput" value="5" min="1" max="300">
+        </div>
+        <button class="btn btn-primary btn-sm" id="saveInterval" style="margin-bottom:3px;">保存</button>
+      </div>
+    </div>
+    <div class="admin-section">
+      <h3 id="formTitle"><svg class="svg-icon"><use href="#icon-plus"/></svg> 添加服务器</h3>
+      <input type="hidden" id="editServerId">
+      <div class="form-group"><label>服务器名称</label><input type="text" id="srvName" placeholder="例如：我的生存服"></div>
+      <div class="form-group"><label>主地址 (域名或 host:port，无端口时自动 SRV 解析)</label><input type="text" id="srvAddr" placeholder="mc.example.com 或 127.0.0.1:25565"></div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;justify-content:space-between;">副地址 (备选)<button class="btn btn-outline btn-sm" id="addBackupBtn">+ 添加</button></label>
+        <div id="backupList"></div>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+        <button class="btn btn-primary" id="saveServer"><svg class="svg-icon sm"><use href="#icon-check"/></svg> 保存服务器</button>
+        <button class="btn btn-outline" id="cancelEdit" style="display:none;">取消编辑</button>
+      </div>
+    </div>
+    <div class="admin-section">
+      <h3><svg class="svg-icon"><use href="#icon-list"/></svg> 已添加的服务器</h3>
+      <div class="server-list-admin" id="adminServerList"><div style="color:var(--muted);">暂无服务器</div></div>
+    </div>
+  </div>
+
+  <!-- Server Detail Page -->
+  <div class="page" id="page-detail">
+    <div class="detail-header">
+      <button class="back-btn" onclick="goBackFromDetail()">
+        <svg class="svg-icon sm"><use href="#icon-arrow-left"/></svg> 返回
+      </button>
+      <div>
+        <span class="detail-title" id="detailTitle">服务器详情</span>
+        <div class="card-addr" id="detailAddr" style="margin-top:2px;"></div>
+      </div>
+      <span class="status-tag" id="detailStatusTag" style="margin-left:auto;">离线</span>
+    </div>
+    <div class="detail-panels">
+      <div class="panel">
+        <h4><svg class="svg-icon sm"><use href="#icon-info"/></svg> 服务器信息</h4>
+        <div class="info-row"><span class="lbl">版本</span><span class="val" id="dVersion">--</span></div>
+        <div class="info-row"><span class="lbl">协议</span><span class="val" id="dProtocol">--</span></div>
+        <div class="info-row"><span class="lbl">延迟</span><span class="val" id="dLatency">--</span></div>
+        <div class="info-row"><span class="lbl">在线玩家</span><span class="val" id="dPlayers">--</span></div>
+        <div class="info-row"><span class="lbl">MOTD</span><span class="val" id="dMotd" style="font-family:'Consolas','Courier New',monospace;font-size:0.8rem;">--</span></div>
+      </div>
+      <div class="panel">
+        <h4><svg class="svg-icon sm"><use href="#icon-players"/></svg> 在线玩家</h4>
+        <div class="player-grid" id="dPlayerList"></div>
+        <div class="empty-note" style="margin-top:0.5rem;" id="dPlayerEmpty">暂无玩家在线</div>
+      </div>
+      <div class="panel">
+        <h4><svg class="svg-icon sm"><use href="#icon-backup"/></svg> 副地址状态</h4>
+        <div id="dBackupList"></div>
+        <div class="empty-note" style="margin-top:0.5rem;" id="dBackupEmpty">无副地址</div>
+      </div>
+    </div>
+    <div class="chart-section">
+      <h4><svg class="svg-icon sm"><use href="#icon-chart"/></svg> 在线历史</h4>
+      <div class="range-btns" id="rangeBtns">
+        <button class="btn btn-outline active-range" data-range="15m">实时(15分)</button>
+        <button class="btn btn-outline" data-range="1h">1小时</button>
+        <button class="btn btn-outline" data-range="6h">6小时</button>
+        <button class="btn btn-outline" data-range="24h">24小时</button>
+        <button class="btn btn-outline" data-range="7d">7天</button>
+        <button class="btn btn-outline" data-range="30d">30天</button>
+        <button class="btn btn-outline" data-range="custom" id="btnCustomRange">自定义</button>
+      </div>
+      <div class="custom-range-row" id="customRangeRow" style="display:none;">
+        <input type="datetime-local" id="rangeStart">
+        <span style="color:var(--muted);">至</span>
+        <input type="datetime-local" id="rangeEnd">
+        <button class="btn btn-primary btn-sm" id="applyCustomRange">应用</button>
+      </div>
+      <div class="chart-wrap"><canvas id="historyChart"></canvas></div>
+      <div class="tooltip-hint">
+        <svg class="svg-icon sm" style="vertical-align:middle;margin-right:2px;"><use href="#icon-info"/></svg>
+        鼠标移至数据点查看当时在线玩家 | 点击数据点固定玩家列表
+      </div>
+    </div>
+    <div class="pinned-section" id="pinnedSection">
+      <h4>
+        <span><svg class="svg-icon sm"><use href="#icon-pin"/></svg> <span id="pinnedTime"></span> 在线玩家</span>
+        <button class="btn btn-outline btn-sm" id="unpinBtn">取消固定</button>
+      </h4>
+      <div class="player-grid" id="pinnedPlayerList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/chart.js"></script>
+<script src="/static/js/players.js"></script>
+</body>
+</html>

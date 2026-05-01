@@ -1,0 +1,4 @@
+flask==3.1.2
+flask-socketio==5.5.1
+mcstatus==11.1.1
+eventlet==0.39.1
