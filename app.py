@@ -24,11 +24,17 @@ _cleanup_counter = 0
 def query_all_servers():
     global server_statuses
     servers = get_all_servers()
+    current_ids = set()
     for s in servers:
         status = query_one_server(s)
         server_statuses[s['id']] = status
         save_history(s['id'], status)
         track_players(s['id'], status['server_name'], status['players']['list'])
+        current_ids.add(s['id'])
+    # 清理已从数据库删除但仍在内存中的 stale 状态
+    for sid in list(server_statuses.keys()):
+        if sid not in current_ids:
+            del server_statuses[sid]
     socketio.emit('status_update', list(server_statuses.values()))
 
 

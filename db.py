@@ -206,6 +206,8 @@ def _player_key(p) -> str:
     return p['id'] or p['name']
 
 
+_MISS_THRESHOLD = 3  # 连续 N 次不在样本中才判定离线
+
 def track_players(server_id: int, server_name: str, player_list: list[dict]):
     global _active_players
     now = time.time()
@@ -224,30 +226,34 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
             db.execute("INSERT INTO players (uuid, name, first_seen, last_seen) VALUES (?, ?, ?, ?)", (key, p['name'], now, now))
 
         if key not in _active_players:
-            _active_players[key] = {'name': p['name'], 'server_id': server_id, 'server_name': server_name, 'login_time': now}
+            _active_players[key] = {'name': p['name'], 'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
             db.execute("INSERT INTO player_sessions (player_uuid, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
                        (key, server_id, server_name, now))
-        elif _active_players[key]['server_id'] != server_id:
-            old = _active_players[key]
-            duration = now - old['login_time']
-            db.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, key))
-            db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, key))
-            _active_players[key] = {'name': p['name'], 'server_id': server_id, 'server_name': server_name, 'login_time': now}
-            db.execute("INSERT INTO player_sessions (player_uuid, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
-                       (key, server_id, server_name, now))
+        else:
+            _active_players[key]['miss_count'] = 0
+            if _active_players[key]['server_id'] != server_id:
+                old = _active_players[key]
+                duration = now - old['login_time']
+                db.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, key))
+                db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, key))
+                _active_players[key] = {'name': p['name'], 'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
+                db.execute("INSERT INTO player_sessions (player_uuid, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
+                           (key, server_id, server_name, now))
     db.commit()
     db.close()
 
     ended = []
-    for key, info in _active_players.items():
+    for key, info in list(_active_players.items()):
         if key not in current_keys:
-            duration = now - info['login_time']
-            edb = sqlite3.connect(DB_PATH)
-            edb.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, key))
-            edb.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, key))
-            edb.commit()
-            edb.close()
-            ended.append(key)
+            info['miss_count'] += 1
+            if info['miss_count'] >= _MISS_THRESHOLD:
+                duration = now - info['login_time']
+                edb = sqlite3.connect(DB_PATH)
+                edb.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, key))
+                edb.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, key))
+                edb.commit()
+                edb.close()
+                ended.append(key)
     for key in ended:
         del _active_players[key]
 
