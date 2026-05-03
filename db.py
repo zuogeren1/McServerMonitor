@@ -1,3 +1,4 @@
+import datetime
 import json
 import time
 import sqlite3
@@ -298,22 +299,30 @@ def get_player_detail(uuid: str):
         db.close()
         return None
 
-    sessions = db.execute("SELECT * FROM player_sessions WHERE player_uuid=? ORDER BY login_time DESC LIMIT 20", (uuid,)).fetchall()
-    hourly = db.execute(
-        """SELECT CAST(strftime('%H', login_time, 'unixepoch', 'localtime') AS INTEGER) as hour,
-                  SUM(CASE WHEN logout_time IS NOT NULL THEN logout_time - login_time ELSE ? - login_time END) as total_sec
-           FROM player_sessions WHERE player_uuid=? GROUP BY hour ORDER BY hour""",
-        (time.time(), uuid)).fetchall()
-    hourly_map = {0: 0}
-    for h in hourly:
-        hourly_map[h['hour']] = round(h['total_sec'] / 60, 1)
+    all_sessions = db.execute("SELECT * FROM player_sessions WHERE player_uuid=?", (uuid,)).fetchall()
     db.close()
+
+    # 将每个 session 的在线时长按实际跨越的小时展开
+    now_ts = time.time()
+    hourly = [0.0] * 24
+    for s in all_sessions:
+        start_dt = datetime.datetime.fromtimestamp(s['login_time'])
+        end_ts = s['logout_time'] if s['logout_time'] else now_ts
+        end_dt = datetime.datetime.fromtimestamp(end_ts)
+        cursor = start_dt.replace(minute=0, second=0, microsecond=0)
+        while cursor <= end_dt:
+            seg_start = max(cursor, start_dt)
+            seg_end = min(cursor + datetime.timedelta(hours=1), end_dt)
+            if seg_end > seg_start:
+                hourly[cursor.hour] += (seg_end - seg_start).total_seconds()
+            cursor += datetime.timedelta(hours=1)
+    hourly_minutes = [round(m / 60, 1) for m in hourly]
 
     is_online = uuid in _active_players
     info = _active_players.get(uuid, {})
     recent_servers = []
     seen = set()
-    for s in sessions:
+    for s in sorted(all_sessions, key=lambda x: x['login_time'], reverse=True):
         if s['server_name'] not in seen:
             seen.add(s['server_name'])
             recent_servers.append({'server_name': s['server_name'], 'login_time': s['login_time'], 'logout_time': s['logout_time']})
@@ -325,5 +334,5 @@ def get_player_detail(uuid: str):
         'first_seen': player['first_seen'], 'last_seen': player['last_seen'],
         'total_online_seconds': round(player['total_online_seconds'] + current_duration, 1),
         'recent_servers': recent_servers[:10],
-        'hourly_minutes': [hourly_map.get(h, 0) for h in range(24)],
+        'hourly_minutes': hourly_minutes,
     }
