@@ -227,7 +227,8 @@ body {
 .custom-range-row input[type="date"],
 .custom-range-row input[type="time"] {
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  padding: 0.4rem 0.5rem; border-radius: 6px; font-size: 0.8rem; outline: none;
+  padding: 0.4rem 0.6rem; border-radius: 6px; font-size: 0.85rem;
+  font-family: 'Segoe UI', system-ui, sans-serif; outline: none;
 }
 .custom-range-row input:focus { border-color: var(--accent); }
 .chart-wrap { position: relative; height: 300px; }
