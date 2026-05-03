@@ -224,7 +224,8 @@ body {
 .range-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .range-btns .btn-outline { font-size: 0.8rem; padding: 0.3rem 0.75rem; }
 .custom-range-row { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
-.custom-range-row input[type="datetime-local"] {
+.custom-range-row input[type="date"],
+.custom-range-row input[type="time"] {
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
   padding: 0.4rem 0.5rem; border-radius: 6px; font-size: 0.8rem; outline: none;
 }

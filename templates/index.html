@@ -218,9 +218,11 @@
         <button class="btn btn-outline" data-range="custom" id="btnCustomRange">自定义</button>
       </div>
       <div class="custom-range-row" id="customRangeRow" style="display:none;">
-        <input type="datetime-local" id="rangeStart">
+        <input type="date" id="rangeStartDate">
+        <input type="time" id="rangeStartTime" value="00:00" style="max-width:90px;">
         <span style="color:var(--muted);">至</span>
-        <input type="datetime-local" id="rangeEnd">
+        <input type="date" id="rangeEndDate">
+        <input type="time" id="rangeEndTime" value="23:59" style="max-width:90px;">
         <button class="btn btn-primary btn-sm" id="applyCustomRange">应用</button>
       </div>
       <div class="chart-wrap"><canvas id="historyChart"></canvas></div>

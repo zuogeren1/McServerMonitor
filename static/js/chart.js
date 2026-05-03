@@ -1,5 +1,26 @@
+// 十字线插件：鼠标悬停时画竖线
+const crosshairPlugin = {
+  id: 'crosshair',
+  afterDraw(chart) {
+    const active = chart.tooltip?.getActiveElements();
+    if (!active || active.length === 0) return;
+    const x = active[0].element.x;
+    const yScale = chart.scales.y;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, yScale.top);
+    ctx.lineTo(x, yScale.bottom);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.stroke();
+    ctx.restore();
+  },
+};
 
-function createChart(labels, values, yMax) {
+function createChart(labels, values, yMax, range) {
+  const showDate = ['24h', '7d', '30d'].includes(range);
   const ctx = document.getElementById('historyChart').getContext('2d');
   historyChart = new Chart(ctx, {
     type: 'line',
@@ -25,7 +46,12 @@ function createChart(labels, values, yMax) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            title: items => new Date(items[0].parsed.x).toLocaleString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+            title: items => {
+              const d = new Date(items[0].parsed.x);
+              return showDate
+                ? d.toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})
+                : d.toLocaleString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            },
             label: ctx => `在线: ${ctx.parsed.y} 人`,
           },
         },
@@ -34,8 +60,10 @@ function createChart(labels, values, yMax) {
         x: {
           type: 'time',
           time: {
-            tooltipFormat: 'MM-dd HH:mm:ss',
-            displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm', day: 'MM-dd' },
+            tooltipFormat: showDate ? 'MM-dd HH:mm:ss' : 'HH:mm:ss',
+            displayFormats: showDate
+              ? { hour: 'MM-dd HH:mm', day: 'MM-dd' }
+              : { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm' },
           },
           ticks: { color: '#94a3b8', maxTicksLimit: 10, font: { size: 10 } },
           grid: { color: 'rgba(255,255,255,0.04)' },
@@ -57,6 +85,7 @@ function createChart(labels, values, yMax) {
         if (point) { pinnedPoint = point; showPinnedPlayers(point); }
       },
     },
+    plugins: [crosshairPlugin],
   });
 }
 
@@ -72,10 +101,12 @@ async function loadHistoryChart(sid, range) {
 
   let url = `/api/servers/${sid}/history?range=${range}`;
   if (range === 'custom') {
-    const start = document.getElementById('rangeStart').value;
-    const end = document.getElementById('rangeEnd').value;
-    if (!start || !end) return;
-    url = `/api/servers/${sid}/history?start=${new Date(start).getTime()/1000}&end=${new Date(end).getTime()/1000}`;
+    const sDate = document.getElementById('rangeStartDate').value;
+    const sTime = document.getElementById('rangeStartTime').value || '00:00';
+    const eDate = document.getElementById('rangeEndDate').value;
+    const eTime = document.getElementById('rangeEndTime').value || '23:59';
+    if (!sDate || !eDate) return;
+    url = `/api/servers/${sid}/history?start=${new Date(sDate + 'T' + sTime).getTime()/1000}&end=${new Date(eDate + 'T' + eTime).getTime()/1000}`;
   }
 
   const resp = await fetch(url);
@@ -84,15 +115,15 @@ async function loadHistoryChart(sid, range) {
   historyData = data;
   chartCurrentRange = range;
   chartLastTs = data.length > 0 ? data[data.length - 1].timestamp : 0;
+
   const labels = data.map(d => new Date(d.timestamp * 1000));
   const values = data.map(d => d.player_count || (d.online ? 0 : null));
   const yMax = computeYMax(values);
 
   if (historyChart) historyChart.destroy();
-  createChart(labels, values, yMax);
+  createChart(labels, values, yMax, range);
 }
 
-// 增量追加新数据点（实时模式专用），平滑延伸
 async function appendRealtimeData(sid) {
   const now = Date.now() / 1000;
   let url = `/api/servers/${sid}/history?start=${chartLastTs || (now - 900)}&end=${now}`;
@@ -102,14 +133,12 @@ async function appendRealtimeData(sid) {
 
   if (data.length === 0) return;
 
-  // 去重，只保留新于我们最后一次的时间戳
   const newPoints = data.filter(d => d.timestamp > chartLastTs + 0.001);
   if (newPoints.length === 0) return;
 
   const windowStart = now - RANGE_SECONDS['15m'];
 
   historyData.push(...newPoints);
-  // 裁剪窗口外的旧数据
   historyData = historyData.filter(d => d.timestamp >= windowStart);
 
   chartLastTs = historyData.length > 0 ? historyData[historyData.length - 1].timestamp : chartLastTs;
@@ -134,7 +163,7 @@ function showPinnedPlayers(point) {
     plEl.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">该时间点无玩家在线</span>';
   } else {
     plEl.innerHTML = list.map(name => `
-      <div class="player-chip" onclick="onPlayerClick('${esc(name)}', '${esc(name)}')" title="点击查看玩家详情">
+      <div class="player-chip" onclick="onPlayerClick('${esc(name)}', '${esc(name)}')" title="点击查看玩家详情 (开发中)">
         <img src="${avatarUrl(null, name)}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Crect width=%2220%22 height=%2220%22 fill=%22%23475569%22/%3E%3C/svg%3E'">
         <span>${esc(name)}</span>
       </div>
@@ -163,7 +192,6 @@ document.getElementById('applyCustomRange').addEventListener('click', () => {
   if (detailServerId) loadHistoryChart(detailServerId, 'custom');
 });
 
-// Auto-refresh: 实时模式增量追加，其他模式刷新详情
 setInterval(() => {
   if (currentPage === 'detail' && detailServerId) {
     if (chartCurrentRange === '15m') {
@@ -172,4 +200,3 @@ setInterval(() => {
     loadDetailPage(detailServerId);
   }
 }, 5000);
-
