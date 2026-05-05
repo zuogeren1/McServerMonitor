@@ -74,7 +74,7 @@ function createChart(labels, values, yMax, range) {
           grid: { color: 'rgba(255,255,255,0.04)' },
         },
       },
-      onClick: (event, elements) => {
+      onClick: async (event, elements) => {
         if (elements.length === 0) {
           pinnedPoint = null;
           document.getElementById('pinnedSection').classList.remove('visible');
@@ -82,7 +82,7 @@ function createChart(labels, values, yMax, range) {
         }
         const tsSec = elements[0].element.$context.parsed.x / 1000;
         const point = historyData.find(d => Math.abs(d.timestamp - tsSec) < 0.5);
-        if (point) { pinnedPoint = point; showPinnedPlayers(point); }
+        if (point) { pinnedPoint = point; await showPinnedPlayers(point); }
       },
     },
     plugins: [crosshairPlugin],
@@ -152,12 +152,16 @@ async function appendRealtimeData(sid) {
   historyChart.update('default');
 }
 
-function showPinnedPlayers(point) {
+async function showPinnedPlayers(point) {
   const section = document.getElementById('pinnedSection');
   section.classList.add('visible');
   document.getElementById('pinnedTime').textContent = new Date(point.timestamp * 1000).toLocaleString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
-  const list = point.player_list || [];
+  let list = point.player_list || [];
+  if (list.length === 0 && detailServerId) {
+    const resp = await fetch(`/api/servers/${detailServerId}/player-list?ts=${point.timestamp}`);
+    list = await resp.json();
+  }
   const plEl = document.getElementById('pinnedPlayerList');
   if (list.length === 0) {
     plEl.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">该时间点无玩家在线</span>';

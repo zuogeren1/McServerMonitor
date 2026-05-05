@@ -74,6 +74,15 @@ def init_db():
         check_interval = int(row[0])
     else:
         db.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('check_interval', '5')")
+
+    # 关闭上次遗留的未结束 session，累加时长
+    now = time.time()
+    rows = db.execute("SELECT player_uuid, login_time FROM player_sessions WHERE logout_time IS NULL").fetchall()
+    for r in rows:
+        duration = now - r[1]
+        db.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, r[0]))
+        db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, r[0]))
+
     db.commit()
     db.close()
     return check_interval
@@ -289,6 +298,16 @@ def get_players(filter_online: str | None = None, sort_by: str = 'name'):
         'first_seen': r['first_seen'], 'last_seen': r['last_seen'],
         'total_online_seconds': round(r['total_online_seconds'] + (now - _active_players[r['uuid']]['login_time'] if r['uuid'] in _active_players else 0), 1),
     } for r in rows]
+
+
+def get_player_list_at_time(server_id: int, timestamp: float):
+    db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
+    row = db.execute(
+        "SELECT player_list FROM history WHERE server_id=? ORDER BY ABS(timestamp - ?) LIMIT 1",
+        (server_id, timestamp)).fetchone()
+    db.close()
+    return json.loads(row['player_list']) if row and row['player_list'] else []
 
 
 def get_player_detail(uuid: str):

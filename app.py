@@ -9,7 +9,7 @@ from flask_socketio import SocketIO, emit
 from db import (
     init_db, get_all_servers, add_server, delete_server, update_server,
     set_check_interval, save_history, cleanup_old_history, get_history,
-    parse_address, track_players, get_players, get_player_detail, check_interval,
+    parse_address, track_players, get_players, get_player_detail, get_player_list_at_time, check_interval,
 )
 from mc_query import query_one_server
 
@@ -129,6 +129,14 @@ def api_server_detail(sid):
 def api_history(sid):
     return jsonify(get_history(sid, range_str=request.args.get('range'),
                                start=request.args.get('start'), end=request.args.get('end')))
+
+
+@app.route('/api/servers/<int:sid>/player-list')
+def api_player_list_at(sid):
+    ts = request.args.get('ts')
+    if not ts:
+        return jsonify([])
+    return jsonify(get_player_list_at_time(sid, float(ts)))
 
 
 @app.route('/api/config', methods=['GET', 'POST'])
