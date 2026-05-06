@@ -266,6 +266,22 @@ body {
 }
 .tooltip-hint { color: var(--muted); font-size: 0.8rem; font-style: italic; text-align: center; margin-top: 0.5rem; }
 
+/* Chart Scrollbar */
+.chart-scrollbar { margin-top: 0.6rem; }
+.scrollbar-track {
+  position: relative; height: 22px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; user-select: none;
+}
+.scrollbar-thumb {
+  position: absolute; top: 2px; bottom: 2px; left: 0; right: 0;
+  background: var(--accent); opacity: 0.35;
+  border-radius: 3px; cursor: grab; min-width: 16px;
+  transition: opacity 0.15s;
+}
+.scrollbar-thumb:hover { opacity: 0.55; }
+.scrollbar-thumb:active { cursor: grabbing; opacity: 0.65; }
+
 /* Empty state */
 .empty-note { color: var(--muted); text-align: center; margin-top: 2rem; }
 .empty-note a { color: var(--accent); cursor: pointer; text-decoration: none; }

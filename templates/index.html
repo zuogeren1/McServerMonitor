@@ -235,6 +235,14 @@
         <svg class="svg-icon sm" style="vertical-align:middle;margin-right:2px;"><use href="#icon-info"/></svg>
         鼠标移至数据点查看当时在线玩家 | 点击数据点固定玩家列表
       </div>
+      <div class="chart-scrollbar" id="chartScrollbar" style="display:none;">
+        <div class="scrollbar-track" id="scrollbarTrack">
+          <div class="scrollbar-thumb" id="scrollbarThumb"></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:0.4rem;">
+        <button class="btn btn-outline btn-sm" id="resetZoomBtn" style="display:none;">重置缩放</button>
+      </div>
     </div>
     <div class="pinned-section" id="pinnedSection">
       <h4>
@@ -249,6 +257,8 @@
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
 <script src="/static/js/app.js"></script>
 <script src="/static/js/chart.js"></script>
 <script src="/static/js/players.js"></script>
