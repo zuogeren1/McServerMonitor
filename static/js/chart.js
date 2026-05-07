@@ -94,35 +94,49 @@ function initScrollbar() {
   let startX = 0;
   let startLeftPct = 0;
 
-  thumb.addEventListener('mousedown', (e) => {
+  function getClientX(e) {
+    return e.touches ? e.touches[0].clientX : e.clientX;
+  }
+
+  function onDragStart(e) {
     dragging = true;
-    startX = e.clientX;
+    startX = getClientX(e);
     startLeftPct = parseFloat(thumb.style.left) || 0;
     e.preventDefault();
     e.stopPropagation();
-  });
+  }
 
-  track.addEventListener('mousedown', (e) => {
+  function onTrackClick(e) {
     if (e.target === thumb) return;
     const rect = track.getBoundingClientRect();
-    const clickPct = (e.clientX - rect.left) / rect.width * 100;
+    const clickPct = (getClientX(e) - rect.left) / rect.width * 100;
     const thumbWidthPct = parseFloat(thumb.style.width) || 100;
     const targetLeftPct = Math.max(0, Math.min(100 - thumbWidthPct, clickPct - thumbWidthPct / 2));
     applyScrollbarPan(targetLeftPct);
-  });
+  }
 
-  document.addEventListener('mousemove', (e) => {
+  function onDragMove(e) {
     if (!dragging) return;
+    e.preventDefault();
     const trackRect = track.getBoundingClientRect();
-    const dxPct = (e.clientX - startX) / trackRect.width * 100;
+    const dxPct = (getClientX(e) - startX) / trackRect.width * 100;
     const thumbWidthPct = parseFloat(thumb.style.width) || 100;
     const newLeft = Math.max(0, Math.min(100 - thumbWidthPct, startLeftPct + dxPct));
     applyScrollbarPan(newLeft);
-  });
+  }
 
-  document.addEventListener('mouseup', () => {
+  function onDragEnd() {
     dragging = false;
-  });
+  }
+
+  thumb.addEventListener('mousedown', onDragStart);
+  thumb.addEventListener('touchstart', onDragStart, {passive: false});
+  track.addEventListener('mousedown', onTrackClick);
+  track.addEventListener('touchstart', onTrackClick, {passive: false});
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('touchmove', onDragMove, {passive: false});
+  document.addEventListener('mouseup', onDragEnd);
+  document.addEventListener('touchend', onDragEnd);
 }
 
 function applyScrollbarPan(pct) {
@@ -158,6 +172,7 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
     zoom: {
       wheel: { enabled: true },
       drag: { enabled: true, backgroundColor: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' },
+      pinch: { enabled: true },
       mode: 'x',
     },
     pan: { enabled: true, mode: 'x' },

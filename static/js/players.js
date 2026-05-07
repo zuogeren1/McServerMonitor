@@ -121,6 +121,7 @@ async function loadPlayerDetail(uuid) {
   // Hourly chart
   const hourly = p.hourly_minutes || new Array(24).fill(0);
   const ctx = document.getElementById('pdHourlyChart').getContext('2d');
+  const chartIsMobile = window.matchMedia('(max-width: 768px)').matches;
   if (pdHourlyChart) pdHourlyChart.destroy();
   pdHourlyChart = new Chart(ctx, {
     type: 'bar',
@@ -132,7 +133,7 @@ async function loadPlayerDetail(uuid) {
         backgroundColor: 'rgba(99,102,241,0.6)',
         borderColor: '#6366f1',
         borderWidth: 1,
-        borderRadius: 2,
+        borderRadius: chartIsMobile ? 1 : 2,
       }],
     },
     options: {
@@ -142,12 +143,20 @@ async function loadPlayerDetail(uuid) {
         tooltip: {
           callbacks: {
             label: ctx => `${ctx.parsed.y.toFixed(1)} 分钟`,
+            title: items => items[0].label,
           },
         },
       },
       scales: {
         x: {
-          ticks: { color: '#94a3b8', font: { size: 8 }, autoSkip: false, maxRotation: 0 },
+          ticks: {
+            color: '#94a3b8',
+            font: { size: chartIsMobile ? 10 : 8 },
+            autoSkip: chartIsMobile,
+            maxTicksLimit: chartIsMobile ? 8 : 24,
+            maxRotation: 0,
+            align: 'center',
+          },
           grid: { display: false },
         },
         y: {

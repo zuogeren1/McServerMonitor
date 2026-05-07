@@ -14,15 +14,68 @@ let pinnedPoint = null;
 // ---- Sidebar ----
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 let sidebarOpen = true;
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+function closeMobileSidebar() {
+  sidebar.classList.remove('mobile-open');
+  sidebarOverlay.classList.remove('visible');
+}
+
+function openMobileSidebar() {
+  sidebar.classList.add('mobile-open');
+  sidebarOverlay.classList.add('visible');
+}
 
 function toggleSidebar() {
+  if (isMobile()) {
+    if (sidebar.classList.contains('mobile-open')) {
+      closeMobileSidebar();
+    } else {
+      openMobileSidebar();
+    }
+    return;
+  }
+  // Desktop: collapse/expand
   sidebarOpen = !sidebarOpen;
   sidebar.classList.toggle('collapsed', !sidebarOpen);
   localStorage.setItem('sidebar', sidebarOpen ? 'open' : 'closed');
 }
+
 sidebarToggle.addEventListener('click', toggleSidebar);
-if (localStorage.getItem('sidebar') === 'closed') { sidebarOpen = true; toggleSidebar(); }
+mobileMenuBtn.addEventListener('click', toggleSidebar);
+sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+// Close mobile sidebar on nav item click
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    switchPage(item.dataset.page);
+    if (isMobile()) closeMobileSidebar();
+  });
+});
+
+// Init desktop sidebar state (not on mobile)
+if (!isMobile() && localStorage.getItem('sidebar') === 'closed') {
+  sidebarOpen = true;
+  toggleSidebar();
+}
+
+// Reset sidebar state on window resize
+window.addEventListener('resize', () => {
+  if (!isMobile()) {
+    closeMobileSidebar();
+    // Restore desktop sidebar state
+    if (localStorage.getItem('sidebar') === 'closed') {
+      sidebar.classList.add('collapsed');
+      sidebarOpen = false;
+    } else {
+      sidebar.classList.remove('collapsed');
+      sidebarOpen = true;
+    }
+  }
+});
 
 // ---- Theme ----
 const themeToggle = document.getElementById('themeToggle');
@@ -39,10 +92,6 @@ themeToggle.addEventListener('click', () => {
 if (localStorage.getItem('theme') === 'light') setTheme('light');
 
 // ---- Navigation ----
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => switchPage(item.dataset.page));
-});
-
 function switchPage(page) {
   currentPage = page;
   if (!['detail', 'player-detail'].includes(page)) prevPage = page;
