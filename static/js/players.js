@@ -73,9 +73,11 @@ document.querySelectorAll('#page-players .btn-outline').forEach(btn => {
 let playerDetailName = null;
 let playerDetailPrevPage = 'players';
 let pdHourlyChart = null;
+let pdCachedUuid = '';  // 单次访问内缓存，刷新图表不重复查询
 
 function openPlayerDetail(name) {
   playerDetailName = name;
+  pdCachedUuid = '';  // 新访问重置，触发重新查询
   playerDetailPrevPage = currentPage !== 'player-detail' ? currentPage : playerDetailPrevPage;
   currentPage = 'player-detail';
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -95,10 +97,14 @@ async function loadPlayerDetail(name) {
   if (!resp.ok) return;
   const p = await resp.json();
 
-  document.getElementById('pdAvatar').src = p.anon_count ? '' : avatarUrl(p.uuid, p.name);
+  // 首次加载缓存 UUID，刷新时复用，避免重复查询
+  if (!pdCachedUuid && p.uuid) pdCachedUuid = p.uuid;
+  const displayUuid = pdCachedUuid || p.uuid || '--';
+
+  document.getElementById('pdAvatar').src = p.anon_count ? '' : avatarUrl(displayUuid, p.name);
   document.getElementById('pdName').textContent = p.anon_count > 0 ? `Anonymous Player x${p.anon_count}` : p.name;
   document.getElementById('pdName2').textContent = p.anon_count > 0 ? `Anonymous Player x${p.anon_count}` : p.name;
-  document.getElementById('pdUuid').textContent = p.uuid || '--';
+  document.getElementById('pdUuid').textContent = displayUuid;
   document.getElementById('pdOnline').innerHTML = p.online ? '<span style="color:var(--online);">● 在线</span>' : '<span style="color:var(--muted);">离线</span>';
   document.getElementById('pdTotalTime').textContent = formatDuration(p.total_online_seconds);
   document.getElementById('pdFirstSeen').textContent = p.first_seen ? new Date(p.first_seen * 1000).toLocaleString('zh-CN') : '--';
@@ -107,24 +113,23 @@ async function loadPlayerDetail(name) {
   tag.textContent = p.online ? '在线' : '离线';
   tag.className = 'status-tag ' + (p.online ? 'online' : 'offline');
 
-  // Current server
+  // Current server — 用户选中文字时跳过更新
   const csEl = document.getElementById('pdCurrentServer');
-  if (p.online && p.current_server) {
-    csEl.innerHTML = `<div style="color:var(--online);font-size:0.85rem;">当前在线于: <strong>${esc(p.current_server)}</strong></div>`;
-  } else {
-    csEl.innerHTML = '';
-  }
+  const csHtml = (p.online && p.current_server)
+    ? `<div style="color:var(--online);font-size:0.85rem;">当前在线于: <strong>${esc(p.current_server)}</strong></div>` : '';
+  _setHtmlSafe(csEl, csHtml);
 
-  // Recent servers
+  // Recent servers — 用户选中文字时跳过更新
   const rsEl = document.getElementById('pdRecentServers');
   const rsEmpty = document.getElementById('pdServersEmpty');
   const servers = p.recent_servers || [];
+  let rsHtml = '';
   if (servers.length === 0) {
-    rsEl.innerHTML = '';
+    rsHtml = '';
     rsEmpty.style.display = 'block';
   } else {
     rsEmpty.style.display = 'none';
-    rsEl.innerHTML = servers.map((s, i) => {
+    rsHtml = servers.map((s, i) => {
       const login = new Date(s.login_time * 1000).toLocaleString('zh-CN');
       const logout = s.logout_time ? new Date(s.logout_time * 1000).toLocaleString('zh-CN') : '至今';
       return `<div class="info-row">
@@ -133,6 +138,7 @@ async function loadPlayerDetail(name) {
       </div>`;
     }).join('');
   }
+  _setHtmlSafe(rsEl, rsHtml);
 
   // Hourly chart
   const hourly = p.hourly_minutes || new Array(24).fill(0);

@@ -526,7 +526,7 @@ def get_player_detail(name: str):
 
     current_duration = (time.time() - info['login_time']) if is_online else 0
 
-    # 匿名玩家跳过 UUID 获取
+    # UUID 仅显示用，不持久化
     uuid = ''
     if player['name'] != _ANON_NAME:
         uuid = player['uuid'] or _fetch_player_uuid(player['name']) or ''

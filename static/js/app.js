@@ -209,6 +209,30 @@ function destroyChart() {
   if (historyChart) { historyChart.destroy(); historyChart = null; }
 }
 
+function _setHtmlIfChanged(el, html) {
+  if (el._lastHtml !== html) { el._lastHtml = html; el.innerHTML = html; }
+}
+
+function _hasSelectionIn(el) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return false;
+  for (let i = 0; i < sel.rangeCount; i++) {
+    const r = sel.getRangeAt(i);
+    if (el.contains(r.startContainer) || el.contains(r.endContainer)) return true;
+  }
+  return false;
+}
+
+function _setHtmlSafe(el, html) {
+  if (_hasSelectionIn(el)) return;  // 用户正在选中文字，跳过更新
+  _setHtmlIfChanged(el, html);
+}
+
+function _setTextSafe(el, text) {
+  if (_hasSelectionIn(el)) return;
+  if (el._lastText !== text) { el._lastText = text; el.textContent = text; }
+}
+
 function loadDetailPage(sid) {
   const s = currentStatuses.find(x => x.server_id === sid);
   if (!s) return;
@@ -221,8 +245,8 @@ function loadDetailPage(sid) {
 
   document.getElementById('dVersion').textContent = s.version || '--';
   document.getElementById('dProtocol').textContent = s.protocol || '--';
-  document.getElementById('dLatency').textContent = s.latency != null ? s.latency + ' ms' : '--';
-  document.getElementById('dPlayers').textContent = s.players.online + ' / ' + s.players.max;
+  _setTextSafe(document.getElementById('dLatency'), s.latency != null ? s.latency + ' ms' : '--');
+  _setTextSafe(document.getElementById('dPlayers'), s.players.online + ' / ' + s.players.max);
   document.getElementById('dMotd').innerHTML = s.motd_html || esc(s.motd) || '--';
 
   const playerList = s.players.list || [];
@@ -232,7 +256,7 @@ function loadDetailPage(sid) {
   const anonCount = playerList.filter(p => (p.name || '').includes(' ')).length;
   const normalPlayers = playerList.filter(p => !(p.name || '').includes(' '));
   if (normalPlayers.length === 0 && anonCount === 0) {
-    plEl.innerHTML = '';
+    _setHtmlSafe(plEl, '');
     plEmpty.style.display = 'block';
   } else {
     plEmpty.style.display = 'none';
@@ -249,18 +273,18 @@ function loadDetailPage(sid) {
         </div>
       `);
     }
-    plEl.innerHTML = chips.join('');
+    _setHtmlSafe(plEl, chips.join(''));
   }
 
   const backups = s.backup_statuses || [];
   const bkEl = document.getElementById('dBackupList');
   const bkEmpty = document.getElementById('dBackupEmpty');
   if (backups.length === 0) {
-    bkEl.innerHTML = '';
+    _setHtmlSafe(bkEl, '');
     bkEmpty.style.display = 'block';
   } else {
     bkEmpty.style.display = 'none';
-    bkEl.innerHTML = backups.map(b => `
+    _setHtmlSafe(bkEl, backups.map(b => `
       <div class="backup-status-row">
         <span>
           <span class="backup-status-dot ${b.online ? 'green' : 'red'}"></span>
@@ -271,7 +295,7 @@ function loadDetailPage(sid) {
           ${b.online ? (b.latency ? b.latency + 'ms' : '在线') : '离线'}
         </span>
       </div>
-    `).join('');
+    `).join(''));
   }
 }
 
