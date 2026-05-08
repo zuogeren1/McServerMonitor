@@ -234,7 +234,7 @@ function loadDetailPage(sid) {
   } else {
     plEmpty.style.display = 'none';
     plEl.innerHTML = playerList.map(p => `
-      <div class="player-chip" onclick="onPlayerClick('${esc(p.name)}', '${p.id || p.name}')" title="点击查看玩家详情 (开发中)">
+      <div class="player-chip" onclick="onPlayerClick('${esc(p.name)}')" title="点击查看玩家详情">
         <img src="${avatarUrl(p.id, p.name)}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Crect width=%2220%22 height=%2220%22 fill=%22%23475569%22/%3E%3C/svg%3E'">
         <span>${esc(p.name)}</span>
       </div>
@@ -264,8 +264,8 @@ function loadDetailPage(sid) {
   }
 }
 
-function onPlayerClick(name, uuid) {
-  openPlayerDetail(uuid || name);
+function onPlayerClick(name) {
+  openPlayerDetail(name);
 }
 
 // ---- Admin Page ----
@@ -329,21 +329,21 @@ function _renderAdminPlayerList(filter) {
   list.innerHTML = players.map(p => `
     <div class="item">
       <div class="info" style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;">
-        <img src="${avatarUrl(p.online ? p.uuid : null, p.name)}" alt="" style="width:22px;height:22px;border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
+        <img src="${avatarUrl(p.uuid, p.name)}" alt="" style="width:22px;height:22px;border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
         <strong style="flex-shrink:0;">${esc(p.name)}</strong>
-        <small style="color:var(--muted);font-family:'Consolas','Courier New',monospace;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.uuid)}</small>
+        <small style="color:var(--muted);font-family:'Consolas','Courier New',monospace;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.uuid || '')}</small>
         <small style="color:var(--muted);font-size:0.75rem;">${formatDuration(p.total_online_seconds)}</small>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteAdminPlayer('${esc(p.uuid)}', '${esc(p.name)}')">
+      <button class="btn btn-danger btn-sm" onclick="deleteAdminPlayer('${esc(p.name)}')">
         <svg class="svg-icon sm"><use href="#icon-close"/></svg>
       </button>
     </div>
   `).join('');
 }
 
-function deleteAdminPlayer(uuid, name) {
+function deleteAdminPlayer(name) {
   if (!confirm(`确定删除玩家 "${name}" 及其所有数据?`)) return;
-  fetch(`/api/players/${encodeURIComponent(uuid)}`, {method: 'DELETE'}).then(() => {
+  fetch(`/api/players/${encodeURIComponent(name)}`, {method: 'DELETE'}).then(() => {
     adminPlayerList = [];
     renderAdminPlayers(document.getElementById('playerSearch').value);
   });
@@ -456,7 +456,7 @@ socket.on('status_update', (data) => {
   renderAll();
   if (currentPage === 'detail' && detailServerId) loadDetailPage(detailServerId);
   if (currentPage === 'players') loadPlayerList();
-  if (currentPage === 'player-detail' && playerDetailUuid) loadPlayerDetail(playerDetailUuid);
+  if (currentPage === 'player-detail' && playerDetailName) loadPlayerDetail(playerDetailName);
 });
 
 // ---- Helpers ----
@@ -465,9 +465,12 @@ function fmtAddr(host, port) {
   return esc(host) + ':' + port;
 }
 function avatarUrl(uuid, name) {
-  const id = uuid || name;
-  if (!id) return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Crect width=%2220%22 height=%2220%22 fill=%22%23475569%22/%3E%3C/svg%3E';
-  return `https://crafthead.net/avatar/${encodeURIComponent(id)}`;
+  // 优先用 UUID，名称含空格则为无效 Minecraft 用户名
+  const id = uuid ? uuid.trim() : '';
+  if (id) return `https://crafthead.net/avatar/${encodeURIComponent(id)}`;
+  const cleanName = (name || '').trim();
+  if (!cleanName || cleanName.includes(' ')) return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Crect width=%2220%22 height=%2220%22 fill=%22%23475569%22/%3E%3C/svg%3E';
+  return `https://crafthead.net/avatar/${encodeURIComponent(cleanName)}`;
 }
 function esc(str) {
   if (!str) return '';

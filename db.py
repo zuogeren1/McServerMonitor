@@ -3,8 +3,8 @@ import json
 import time
 import sqlite3
 import os
-import hashlib
-import uuid as _uuid
+import urllib.request
+import urllib.error
 from flask import g
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'monitor.db')
@@ -14,7 +14,7 @@ RANGE_SECONDS = {
     '24h': 24 * 3600, '7d': 7 * 24 * 3600, '30d': 30 * 24 * 3600,
 }
 
-# 玩家在线追踪
+# 玩家在线追踪 — 以名称为 key，UUID 仅用于显示
 _active_players: dict[str, dict] = {}
 
 
@@ -42,6 +42,68 @@ def get_db():
     return db
 
 
+def _migrate_players(db):
+    """将旧版 uuid-PK 表结构迁移为 name-PK 结构"""
+    db.row_factory = sqlite3.Row
+    # 检查是否已是新结构
+    cols = [r[1] for r in db.execute("PRAGMA table_info(players)").fetchall()]
+    if 'name' in cols and 'uuid' in cols and cols[0] == 'name':
+        return  # 已是新结构
+
+    # 迁移 players: 同名合并，优先保留有真实 UUID 的行
+    old_players = db.execute("SELECT uuid, name, first_seen, last_seen, total_online_seconds FROM players").fetchall()
+    merged = {}
+    for r in old_players:
+        key = r['name'].lower()
+        if key not in merged:
+            merged[key] = dict(r)
+        else:
+            cur = merged[key]
+            # 优先保留 v4 UUID（正版），其次保留非空 UUID
+            existing_ver = cur['uuid'][14] if cur['uuid'] and len(cur['uuid']) > 14 else ''
+            new_ver = r['uuid'][14] if r['uuid'] and len(r['uuid']) > 14 else ''
+            if new_ver == '4' and existing_ver != '4':
+                cur['uuid'] = r['uuid']
+            elif not cur['uuid'] and r['uuid']:
+                cur['uuid'] = r['uuid']
+            cur['first_seen'] = min(cur['first_seen'], r['first_seen'])
+            cur['last_seen'] = max(cur['last_seen'], r['last_seen'])
+            cur['total_online_seconds'] += r['total_online_seconds']
+
+    # 迁移 sessions: 通过旧 uuid 关联到 name
+    old_sessions = db.execute("SELECT id, player_uuid, server_id, server_name, login_time, logout_time FROM player_sessions").fetchall()
+    uuid_to_name = {r['uuid']: r['name'] for r in old_players}
+
+    db.execute("DROP TABLE IF EXISTS player_sessions_new")
+    db.execute("DROP TABLE IF EXISTS players_new")
+    db.execute('''CREATE TABLE players_new (
+        name TEXT PRIMARY KEY, uuid TEXT,
+        first_seen REAL NOT NULL, last_seen REAL NOT NULL,
+        total_online_seconds REAL NOT NULL DEFAULT 0)''')
+    db.execute('''CREATE TABLE player_sessions_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, player_name TEXT NOT NULL,
+        server_id INTEGER, server_name TEXT NOT NULL,
+        login_time REAL NOT NULL, logout_time REAL,
+        FOREIGN KEY (player_name) REFERENCES players_new(name) ON DELETE CASCADE)''')
+    db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_player_new ON player_sessions_new(player_name, login_time)")
+
+    for m in merged.values():
+        db.execute("INSERT OR IGNORE INTO players_new (name, uuid, first_seen, last_seen, total_online_seconds) VALUES (?, ?, ?, ?, ?)",
+                   (m['name'], m.get('uuid'), m['first_seen'], m['last_seen'], m['total_online_seconds']))
+
+    for s in old_sessions:
+        pname = uuid_to_name.get(s['player_uuid'])
+        if pname:
+            db.execute("INSERT INTO player_sessions_new (id, player_name, server_id, server_name, login_time, logout_time) VALUES (?, ?, ?, ?, ?, ?)",
+                       (s['id'], pname, s['server_id'], s['server_name'], s['login_time'], s['logout_time']))
+
+    db.execute("DROP TABLE IF EXISTS player_sessions")
+    db.execute("DROP TABLE IF EXISTS players")
+    db.execute("ALTER TABLE players_new RENAME TO players")
+    db.execute("ALTER TABLE player_sessions_new RENAME TO player_sessions")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_player ON player_sessions(player_name, login_time)")
+
+
 def init_db():
     db = sqlite3.connect(DB_PATH)
     db.execute('''CREATE TABLE IF NOT EXISTS servers (
@@ -60,15 +122,19 @@ def init_db():
         latency REAL, FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE)''')
     db.execute('CREATE INDEX IF NOT EXISTS idx_history_server_time ON history(server_id, timestamp)')
     db.execute('''CREATE TABLE IF NOT EXISTS players (
-        uuid TEXT PRIMARY KEY, name TEXT NOT NULL, first_seen REAL NOT NULL,
-        last_seen REAL NOT NULL, total_online_seconds REAL NOT NULL DEFAULT 0)''')
+        name TEXT PRIMARY KEY, uuid TEXT,
+        first_seen REAL NOT NULL, last_seen REAL NOT NULL,
+        total_online_seconds REAL NOT NULL DEFAULT 0)''')
     db.execute('''CREATE TABLE IF NOT EXISTS player_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, player_uuid TEXT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT, player_name TEXT NOT NULL,
         server_id INTEGER, server_name TEXT NOT NULL,
         login_time REAL NOT NULL, logout_time REAL,
-        FOREIGN KEY (player_uuid) REFERENCES players(uuid) ON DELETE CASCADE)''')
-    db.execute('CREATE INDEX IF NOT EXISTS idx_sessions_player ON player_sessions(player_uuid, login_time)')
+        FOREIGN KEY (player_name) REFERENCES players(name) ON DELETE CASCADE)''')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_sessions_player ON player_sessions(player_name, login_time)')
     db.execute('PRAGMA foreign_keys = ON')
+
+    # 尝试从旧结构迁移
+    _migrate_players(db)
 
     global check_interval
     row = db.execute("SELECT value FROM config WHERE key='check_interval'").fetchone()
@@ -79,11 +145,11 @@ def init_db():
 
     # 关闭上次遗留的未结束 session，累加时长
     now = time.time()
-    rows = db.execute("SELECT player_uuid, login_time FROM player_sessions WHERE logout_time IS NULL").fetchall()
+    rows = db.execute("SELECT player_name, login_time FROM player_sessions WHERE logout_time IS NULL").fetchall()
     for r in rows:
         duration = now - r[1]
-        db.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, r[0]))
-        db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, r[0]))
+        db.execute("UPDATE player_sessions SET logout_time=? WHERE player_name=? AND logout_time IS NULL", (now, r[0]))
+        db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?", (duration, r[0]))
 
     db.commit()
     db.close()
@@ -214,71 +280,98 @@ def get_history(server_id: int, range_str: str = None, start: float = None, end:
 
 # ---- Player Tracking ----
 
-def _offline_uuid(name: str) -> str:
-    """根据玩家名生成离线模式 UUID，与 Minecraft 原版一致"""
-    digest = hashlib.md5(f"OfflinePlayer:{name}".encode('utf-8')).digest()
-    ba = bytearray(digest)
-    ba[6] = (ba[6] & 0x0f) | 0x30
-    ba[8] = (ba[8] & 0x3f) | 0x80
-    return str(_uuid.UUID(bytes=bytes(ba)))
+_MISS_THRESHOLD = 3
+
+_uuid_cache: dict[str, str | None] = {}  # name → uuid, None 表示已尝试获取但无结果
 
 
-def _player_key(p) -> str:
-    if p['id']:
-        return p['id']
-    return _offline_uuid(p['name'])
+def _fetch_player_uuid(name: str) -> str | None:
+    """从 playerdb.co 获取正版玩家的 UUID"""
+    if name in _uuid_cache:
+        return _uuid_cache[name]
+    try:
+        url = f"https://playerdb.co/api/player/minecraft/{urllib.parse.quote(name)}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'MCServerMonitor/1.0'})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+            if data.get('code') == 'player.found':
+                uuid = data['data']['player']['id']
+                _uuid_cache[name] = uuid
+                return uuid
+    except Exception:
+        pass
+    _uuid_cache[name] = None
+    return None
 
-
-_MISS_THRESHOLD = 3  # 连续 N 次不在样本中才判定离线
 
 def track_players(server_id: int, server_name: str, player_list: list[dict]):
     global _active_players
     now = time.time()
     current_keys = set()
     db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
 
     for p in player_list:
-        key = _player_key(p)
-        if not key:
+        name = (p.get('name') or '').strip()
+        if not name or ' ' in name:
             continue
-        current_keys.add(key)
-        existing = db.execute("SELECT uuid FROM players WHERE uuid=?", (key,)).fetchone()
-        if existing:
-            db.execute("UPDATE players SET name=?, last_seen=? WHERE uuid=?", (p['name'], now, key))
-        else:
-            db.execute("INSERT INTO players (uuid, name, first_seen, last_seen) VALUES (?, ?, ?, ?)", (key, p['name'], now, now))
 
-        if key not in _active_players:
-            _active_players[key] = {'name': p['name'], 'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
-            db.execute("INSERT INTO player_sessions (player_uuid, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
-                       (key, server_id, server_name, now))
+        # 以 DB 中已有的大小写为准，避免 "steve" vs "Steve" 被视为不同玩家
+        existing = db.execute("SELECT name, uuid FROM players WHERE name=? COLLATE NOCASE", (name,)).fetchone()
+        canonical = existing['name'] if existing else name
+        current_keys.add(canonical)
+
+        if existing:
+            db.execute("UPDATE players SET last_seen=? WHERE name=?", (now, canonical))
         else:
-            _active_players[key]['miss_count'] = 0
-            if _active_players[key]['server_id'] != server_id:
-                old = _active_players[key]
+            db.execute("INSERT INTO players (name, first_seen, last_seen) VALUES (?, ?, ?)", (canonical, now, now))
+
+        if canonical not in _active_players:
+            _active_players[canonical] = {'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
+            db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
+                       (canonical, server_id, server_name, now))
+        else:
+            _active_players[canonical]['miss_count'] = 0
+            if _active_players[canonical]['server_id'] != server_id:
+                old = _active_players[canonical]
                 duration = now - old['login_time']
-                db.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, key))
-                db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, key))
-                _active_players[key] = {'name': p['name'], 'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
-                db.execute("INSERT INTO player_sessions (player_uuid, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
-                           (key, server_id, server_name, now))
+                db.execute("UPDATE player_sessions SET logout_time=? WHERE player_name=? AND logout_time IS NULL", (now, canonical))
+                db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?", (duration, canonical))
+                _active_players[canonical] = {'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
+                db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
+                           (canonical, server_id, server_name, now))
     db.commit()
     db.close()
 
     ended = []
-    for key, info in list(_active_players.items()):
-        if key not in current_keys:
+    for name, info in list(_active_players.items()):
+        if name not in current_keys:
             info['miss_count'] += 1
             if info['miss_count'] >= _MISS_THRESHOLD:
                 duration = now - info['login_time']
                 edb = sqlite3.connect(DB_PATH)
-                edb.execute("UPDATE player_sessions SET logout_time=? WHERE player_uuid=? AND logout_time IS NULL", (now, key))
-                edb.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE uuid=?", (duration, key))
+                edb.execute("UPDATE player_sessions SET logout_time=? WHERE player_name=? AND logout_time IS NULL", (now, name))
+                edb.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?", (duration, name))
                 edb.commit()
                 edb.close()
-                ended.append(key)
-    for key in ended:
-        del _active_players[key]
+                ended.append(name)
+    for name in ended:
+        del _active_players[name]
+
+
+def _enrich_player_uuid(p: dict) -> dict:
+    """为玩家补充 UUID（从缓存或 DB 或 API）"""
+    if p.get('uuid'):
+        return p
+    # 尝试从 API 获取
+    fetched = _fetch_player_uuid(p['name'])
+    if fetched:
+        db = sqlite3.connect(DB_PATH)
+        db.execute("UPDATE players SET uuid=? WHERE name=?", (fetched, p['name']))
+        db.commit()
+        db.close()
+        p['uuid'] = fetched
+    return p
 
 
 def get_players(filter_online: str | None = None, sort_by: str = 'name'):
@@ -289,14 +382,14 @@ def get_players(filter_online: str | None = None, sort_by: str = 'name'):
     if filter_online == 'online':
         active_keys = list(_active_players.keys())
         if active_keys:
-            query += f" WHERE uuid IN ({','.join(['?' for _ in active_keys])})"
+            query += f" WHERE name IN ({','.join(['?' for _ in active_keys])})"
             params = active_keys
         else:
             query += " WHERE 1=0"
     elif filter_online == 'offline':
         active_keys = list(_active_players.keys())
         if active_keys:
-            query += f" WHERE uuid NOT IN ({','.join(['?' for _ in active_keys])})"
+            query += f" WHERE name NOT IN ({','.join(['?' for _ in active_keys])})"
             params = active_keys
     order_map = {'name': 'name COLLATE NOCASE ASC', 'last_seen': 'last_seen DESC', 'total_time': 'total_online_seconds DESC'}
     query += f" ORDER BY {order_map.get(sort_by, 'name COLLATE NOCASE ASC')}"
@@ -305,11 +398,11 @@ def get_players(filter_online: str | None = None, sort_by: str = 'name'):
 
     now = time.time()
     return [{
-        'uuid': r['uuid'], 'name': r['name'],
-        'online': r['uuid'] in _active_players,
-        'current_server': _active_players[r['uuid']]['server_name'] if r['uuid'] in _active_players else '',
+        'name': r['name'], 'uuid': r['uuid'] or '',
+        'online': r['name'] in _active_players,
+        'current_server': _active_players[r['name']]['server_name'] if r['name'] in _active_players else '',
         'first_seen': r['first_seen'], 'last_seen': r['last_seen'],
-        'total_online_seconds': round(r['total_online_seconds'] + (now - _active_players[r['uuid']]['login_time'] if r['uuid'] in _active_players else 0), 1),
+        'total_online_seconds': round(r['total_online_seconds'] + (now - _active_players[r['name']]['login_time'] if r['name'] in _active_players else 0), 1),
     } for r in rows]
 
 
@@ -323,29 +416,29 @@ def get_player_list_at_time(server_id: int, timestamp: float):
     return json.loads(row['player_list']) if row and row['player_list'] else []
 
 
-def delete_player(uuid: str):
+def delete_player(name: str):
     global _active_players
     db = sqlite3.connect(DB_PATH)
     db.execute('PRAGMA foreign_keys = ON')
-    db.execute("DELETE FROM player_sessions WHERE player_uuid=?", (uuid,))
-    db.execute("DELETE FROM players WHERE uuid=?", (uuid,))
+    db.execute("DELETE FROM player_sessions WHERE player_name=?", (name,))
+    db.execute("DELETE FROM players WHERE name=?", (name,))
     db.commit()
     db.close()
-    _active_players.pop(uuid, None)
+    _active_players.pop(name, None)
+    _uuid_cache.pop(name, None)
 
 
-def get_player_detail(uuid: str):
+def get_player_detail(name: str):
     db = sqlite3.connect(DB_PATH)
     db.row_factory = sqlite3.Row
-    player = db.execute("SELECT * FROM players WHERE uuid=?", (uuid,)).fetchone()
+    player = db.execute("SELECT * FROM players WHERE name=? COLLATE NOCASE", (name,)).fetchone()
     if not player:
         db.close()
         return None
 
-    all_sessions = db.execute("SELECT * FROM player_sessions WHERE player_uuid=?", (uuid,)).fetchall()
+    all_sessions = db.execute("SELECT * FROM player_sessions WHERE player_name=? COLLATE NOCASE", (name,)).fetchall()
     db.close()
 
-    # 将每个 session 的在线时长按实际跨越的小时展开
     now_ts = time.time()
     hourly = [0.0] * 24
     for s in all_sessions:
@@ -361,8 +454,8 @@ def get_player_detail(uuid: str):
             cursor += datetime.timedelta(hours=1)
     hourly_minutes = [round(m / 60, 1) for m in hourly]
 
-    is_online = uuid in _active_players
-    info = _active_players.get(uuid, {})
+    is_online = name in _active_players
+    info = _active_players.get(name, {})
     recent_servers = []
     seen = set()
     for s in sorted(all_sessions, key=lambda x: x['login_time'], reverse=True):
@@ -371,8 +464,12 @@ def get_player_detail(uuid: str):
             recent_servers.append({'server_name': s['server_name'], 'login_time': s['login_time'], 'logout_time': s['logout_time']})
 
     current_duration = (time.time() - info['login_time']) if is_online else 0
+
+    # 尝试获取 UUID
+    uuid = player['uuid'] or _fetch_player_uuid(player['name']) or ''
+
     return {
-        'uuid': uuid, 'name': player['name'], 'online': is_online,
+        'name': player['name'], 'uuid': uuid, 'online': is_online,
         'current_server': info.get('server_name', '') if is_online else '',
         'first_seen': player['first_seen'], 'last_seen': player['last_seen'],
         'total_online_seconds': round(player['total_online_seconds'] + current_duration, 1),

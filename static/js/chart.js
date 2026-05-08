@@ -353,7 +353,7 @@ async function showPinnedPlayers(point) {
     plEl.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">该时间点无玩家在线</span>';
   } else {
     plEl.innerHTML = list.map(name => `
-      <div class="player-chip" onclick="onPlayerClick('${esc(name)}', '${esc(name)}')" title="点击查看玩家详情 (开发中)">
+      <div class="player-chip" onclick="onPlayerClick('${esc(name)}')" title="点击查看玩家详情">
         <img src="${avatarUrl(null, name)}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Crect width=%2220%22 height=%2220%22 fill=%22%23475569%22/%3E%3C/svg%3E'">
         <span>${esc(name)}</span>
       </div>

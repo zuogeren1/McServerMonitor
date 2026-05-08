@@ -155,12 +155,12 @@ def api_players():
     return jsonify(get_players(filter_online=request.args.get('filter'), sort_by=request.args.get('sort', 'name')))
 
 
-@app.route('/api/players/<uuid>', methods=['GET', 'DELETE'])
-def api_player_detail(uuid):
+@app.route('/api/players/<path:name>', methods=['GET', 'DELETE'])
+def api_player_detail(name):
     if request.method == 'DELETE':
-        delete_player(uuid)
+        delete_player(name)
         return jsonify({'ok': True})
-    detail = get_player_detail(uuid)
+    detail = get_player_detail(name)
     return jsonify(detail) if detail else (jsonify({'error': 'not found'}), 404)
 
 
@@ -185,5 +185,6 @@ if __name__ == '__main__':
         status = query_one_server(s)
         server_statuses[s['id']] = status
         save_history(s['id'], status)
+        track_players(s['id'], status['server_name'], status['players']['list'])
     threading.Thread(target=poll_loop, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=9000, debug=False)

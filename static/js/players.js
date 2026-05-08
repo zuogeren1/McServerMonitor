@@ -16,9 +16,9 @@ async function loadPlayerList() {
   empty.style.display = 'none';
 
   container.innerHTML = players.map(p => `
-    <div class="item" style="cursor:pointer;align-items:center;" onclick="openPlayerDetail('${esc(p.uuid)}')">
+    <div class="item" style="cursor:pointer;align-items:center;" onclick="openPlayerDetail('${esc(p.name)}')">
       <div style="display:flex;align-items:center;gap:0.6rem;">
-        <img src="${avatarUrl(p.online ? p.uuid : null, p.name)}" alt="" style="width:28px;height:28px;border-radius:4px;" onerror="this.style.display='none'">
+        <img src="${avatarUrl(p.uuid, p.name)}" alt="" style="width:28px;height:28px;border-radius:4px;" onerror="this.style.display='none'">
         <div class="info">
           <strong>${esc(p.name)}</strong>
           <small style="color:var(--muted);margin-left:0.4rem;">${p.online ? '<span style=\"color:var(--online);\">● 在线</span>' : '○ 离线'}</small>
@@ -54,35 +54,35 @@ document.querySelectorAll('#page-players .btn-outline').forEach(btn => {
 });
 
 // ---- Player Detail ----
-let playerDetailUuid = null;
+let playerDetailName = null;
 let playerDetailPrevPage = 'players';
 let pdHourlyChart = null;
 
-function openPlayerDetail(uuid) {
-  playerDetailUuid = uuid;
+function openPlayerDetail(name) {
+  playerDetailName = name;
   playerDetailPrevPage = currentPage !== 'player-detail' ? currentPage : playerDetailPrevPage;
   currentPage = 'player-detail';
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-player-detail').classList.add('active');
-  loadPlayerDetail(uuid);
+  loadPlayerDetail(name);
 }
 
 function goBackFromPlayerDetail() {
-  playerDetailUuid = null;
+  playerDetailName = null;
   if (pdHourlyChart) { pdHourlyChart.destroy(); pdHourlyChart = null; }
   switchPage(playerDetailPrevPage || 'players');
 }
 
-async function loadPlayerDetail(uuid) {
-  const resp = await fetch(`/api/players/${encodeURIComponent(uuid)}`);
+async function loadPlayerDetail(name) {
+  const resp = await fetch(`/api/players/${encodeURIComponent(name)}`);
   if (!resp.ok) return;
   const p = await resp.json();
 
-  document.getElementById('pdAvatar').src = avatarUrl(p.online ? p.uuid : null, p.name);
+  document.getElementById('pdAvatar').src = avatarUrl(p.uuid, p.name);
   document.getElementById('pdName').textContent = p.name;
   document.getElementById('pdName2').textContent = p.name;
-  document.getElementById('pdUuid').textContent = p.uuid;
+  document.getElementById('pdUuid').textContent = p.uuid || '--';
   document.getElementById('pdOnline').innerHTML = p.online ? '<span style="color:var(--online);">● 在线</span>' : '<span style="color:var(--muted);">离线</span>';
   document.getElementById('pdTotalTime').textContent = formatDuration(p.total_online_seconds);
   document.getElementById('pdFirstSeen').textContent = p.first_seen ? new Date(p.first_seen * 1000).toLocaleString('zh-CN') : '--';
