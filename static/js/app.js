@@ -228,17 +228,28 @@ function loadDetailPage(sid) {
   const playerList = s.players.list || [];
   const plEl = document.getElementById('dPlayerList');
   const plEmpty = document.getElementById('dPlayerEmpty');
-  if (playerList.length === 0) {
+  // 合并匿名玩家
+  const anonCount = playerList.filter(p => (p.name || '').includes(' ')).length;
+  const normalPlayers = playerList.filter(p => !(p.name || '').includes(' '));
+  if (normalPlayers.length === 0 && anonCount === 0) {
     plEl.innerHTML = '';
     plEmpty.style.display = 'block';
   } else {
     plEmpty.style.display = 'none';
-    plEl.innerHTML = playerList.map(p => `
+    const chips = normalPlayers.map(p => `
       <div class="player-chip" onclick="onPlayerClick('${esc(p.name)}')" title="点击查看玩家详情">
         <img src="${avatarUrl(p.id, p.name)}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Crect width=%2220%22 height=%2220%22 fill=%22%23475569%22/%3E%3C/svg%3E'">
         <span>${esc(p.name)}</span>
       </div>
-    `).join('');
+    `);
+    if (anonCount > 0) {
+      chips.push(`
+        <div class="player-chip" onclick="onPlayerClick('Anonymous Player')" title="点击查看匿名玩家详情" style="opacity:0.7;">
+          <span>Anonymous Player x${anonCount}</span>
+        </div>
+      `);
+    }
+    plEl.innerHTML = chips.join('');
   }
 
   const backups = s.backup_statuses || [];

@@ -1,26 +1,14 @@
 let playerFilter = 'all';
 let playerSort = 'name';
 
-async function loadPlayerList() {
-  const url = `/api/players?filter=${playerFilter === 'all' ? '' : playerFilter}&sort=${playerSort}`;
-  const resp = await fetch(url);
-  const players = await resp.json();
-
-  const container = document.getElementById('playerListContainer');
-  const empty = document.getElementById('playersEmpty');
-  if (players.length === 0) {
-    container.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-
-  container.innerHTML = players.map(p => `
+function renderPlayerRow(p) {
+  const displayName = p.anon_count > 0 ? `${esc(p.name)} x${p.anon_count}` : esc(p.name);
+  return `
     <div class="item" style="cursor:pointer;align-items:center;" onclick="openPlayerDetail('${esc(p.name)}')">
       <div style="display:flex;align-items:center;gap:0.6rem;">
-        <img src="${avatarUrl(p.uuid, p.name)}" alt="" style="width:28px;height:28px;border-radius:4px;" onerror="this.style.display='none'">
+        <img src="${p.anonymous ? '' : avatarUrl(p.uuid, p.name)}" alt="" style="width:28px;height:28px;border-radius:4px;" onerror="this.style.display='none'">
         <div class="info">
-          <strong>${esc(p.name)}</strong>
+          <strong>${displayName}</strong>
           <small style="color:var(--muted);margin-left:0.4rem;">${p.online ? '<span style=\"color:var(--online);\">● 在线</span>' : '○ 离线'}</small>
           ${p.online ? `<small style="color:var(--muted);margin-left:0.4rem;">${esc(p.current_server)}</small>` : ''}
         </div>
@@ -30,7 +18,35 @@ async function loadPlayerList() {
         <span>${p.last_seen ? new Date(p.last_seen * 1000).toLocaleString('zh-CN') : '--'}</span>
       </div>
     </div>
-  `).join('');
+  `;
+}
+
+async function loadPlayerList() {
+  const url = `/api/players?filter=${playerFilter === 'all' ? '' : playerFilter}&sort=${playerSort}`;
+  const resp = await fetch(url);
+  const players = await resp.json();
+
+  const anonPlayers = players.filter(p => p.anonymous);
+  const normalPlayers = players.filter(p => !p.anonymous);
+
+  // 匿名玩家区域（始终在上方，不受排序/筛选影响）
+  const anonSection = document.getElementById('anonymousSection');
+  const anonList = document.getElementById('anonymousPlayerList');
+  anonSection.style.display = 'block';
+  anonList.innerHTML = anonPlayers.length > 0
+    ? anonPlayers.map(renderPlayerRow).join('')
+    : '<div style="color:var(--muted);font-size:0.8rem;">暂无匿名玩家</div>';
+
+  // 正常玩家区域
+  const container = document.getElementById('playerListContainer');
+  const empty = document.getElementById('playersEmpty');
+  if (normalPlayers.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = anonPlayers.length === 0 ? 'block' : 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = normalPlayers.map(renderPlayerRow).join('');
 }
 
 function formatDuration(sec) {
@@ -79,9 +95,9 @@ async function loadPlayerDetail(name) {
   if (!resp.ok) return;
   const p = await resp.json();
 
-  document.getElementById('pdAvatar').src = avatarUrl(p.uuid, p.name);
-  document.getElementById('pdName').textContent = p.name;
-  document.getElementById('pdName2').textContent = p.name;
+  document.getElementById('pdAvatar').src = p.anon_count ? '' : avatarUrl(p.uuid, p.name);
+  document.getElementById('pdName').textContent = p.anon_count > 0 ? `Anonymous Player x${p.anon_count}` : p.name;
+  document.getElementById('pdName2').textContent = p.anon_count > 0 ? `Anonymous Player x${p.anon_count}` : p.name;
   document.getElementById('pdUuid').textContent = p.uuid || '--';
   document.getElementById('pdOnline').innerHTML = p.online ? '<span style="color:var(--online);">● 在线</span>' : '<span style="color:var(--muted);">离线</span>';
   document.getElementById('pdTotalTime').textContent = formatDuration(p.total_online_seconds);

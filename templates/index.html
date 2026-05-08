@@ -103,6 +103,10 @@
   <!-- Players Page -->
   <div class="page" id="page-players">
     <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-players"/></svg> 玩家列表</h2></div>
+    <div id="anonymousSection" style="display:none;margin-bottom:1rem;">
+      <div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem;">匿名玩家</div>
+      <div id="anonymousPlayerList" style="display:flex;flex-direction:column;gap:0.3rem;"></div>
+    </div>
     <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
       <button class="btn btn-outline btn-sm active-filter" data-filter="all">全部</button>
       <button class="btn btn-outline btn-sm" data-filter="online">在线</button>

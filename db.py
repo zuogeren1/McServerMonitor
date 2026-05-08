@@ -143,7 +143,7 @@ def init_db():
     else:
         db.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('check_interval', '5')")
 
-    # 关闭上次遗留的未结束 session，累加时长
+    # 关闭上次遗留的未结束 session，累加时长（匿名玩家无法回溯人数，按 1 人计）
     now = time.time()
     rows = db.execute("SELECT player_name, login_time FROM player_sessions WHERE logout_time IS NULL").fetchall()
     for r in rows:
@@ -218,11 +218,16 @@ def set_check_interval(seconds):
 
 
 def save_history(server_id: int, status: dict):
+    raw_names = [p['name'] for p in status['players']['list']]
+    anon_count = sum(1 for n in raw_names if ' ' in n)
+    names = [n for n in raw_names if ' ' not in n]
+    if anon_count > 0:
+        names.append(f"{_ANON_NAME} x{anon_count}")
     db = sqlite3.connect(DB_PATH)
     db.execute(
         "INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency) VALUES (?, ?, ?, ?, ?, ?)",
         (server_id, time.time(), 1 if status['online'] else 0, status['players']['online'],
-         json.dumps([p['name'] for p in status['players']['list']], ensure_ascii=False), status['latency']))
+         json.dumps(names, ensure_ascii=False), status['latency']))
     db.commit()
     db.close()
 
@@ -304,6 +309,29 @@ def _fetch_player_uuid(name: str) -> str | None:
     return None
 
 
+def _ensure_player(db, name, now):
+    existing = db.execute("SELECT name FROM players WHERE name=? COLLATE NOCASE", (name,)).fetchone()
+    if existing:
+        db.execute("UPDATE players SET last_seen=? WHERE name=?", (now, existing['name']))
+        return existing['name']
+    else:
+        db.execute("INSERT INTO players (name, first_seen, last_seen) VALUES (?, ?, ?)", (name, now, now))
+        return name
+
+
+def _new_active(name, server_id, server_name, now):
+    return {'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
+
+
+def _end_active_session(db, name, now, info, extra_duration=0):
+    duration = now - info['login_time'] + extra_duration
+    db.execute("UPDATE player_sessions SET logout_time=? WHERE player_name=? AND logout_time IS NULL", (now, name))
+    db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?", (duration, name))
+
+
+_ANON_NAME = "Anonymous Player"
+
+
 def track_players(server_id: int, server_name: str, player_list: list[dict]):
     global _active_players
     now = time.time()
@@ -311,47 +339,78 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
     db = sqlite3.connect(DB_PATH)
     db.row_factory = sqlite3.Row
 
+    anon_count = 0
     for p in player_list:
         name = (p.get('name') or '').strip()
-        if not name or ' ' in name:
+        if not name:
+            continue
+        if ' ' in name:
+            anon_count += 1
             continue
 
-        # 以 DB 中已有的大小写为准，避免 "steve" vs "Steve" 被视为不同玩家
-        existing = db.execute("SELECT name, uuid FROM players WHERE name=? COLLATE NOCASE", (name,)).fetchone()
-        canonical = existing['name'] if existing else name
+        # 正常玩家
+        canonical = _ensure_player(db, name, now)
         current_keys.add(canonical)
 
-        if existing:
-            db.execute("UPDATE players SET last_seen=? WHERE name=?", (now, canonical))
-        else:
-            db.execute("INSERT INTO players (name, first_seen, last_seen) VALUES (?, ?, ?)", (canonical, now, now))
-
         if canonical not in _active_players:
-            _active_players[canonical] = {'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
+            _active_players[canonical] = _new_active(canonical, server_id, server_name, now)
             db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
                        (canonical, server_id, server_name, now))
         else:
-            _active_players[canonical]['miss_count'] = 0
-            if _active_players[canonical]['server_id'] != server_id:
-                old = _active_players[canonical]
-                duration = now - old['login_time']
-                db.execute("UPDATE player_sessions SET logout_time=? WHERE player_name=? AND logout_time IS NULL", (now, canonical))
-                db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?", (duration, canonical))
-                _active_players[canonical] = {'server_id': server_id, 'server_name': server_name, 'login_time': now, 'miss_count': 0}
+            info = _active_players[canonical]
+            info['miss_count'] = 0
+            if info['server_id'] != server_id:
+                _end_active_session(db, canonical, now, info)
+                _active_players[canonical] = _new_active(canonical, server_id, server_name, now)
                 db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
                            (canonical, server_id, server_name, now))
+
+    # ---- 匿名玩家组：合并为 "Anonymous Player"，时间乘以人数 ----
+    if anon_count > 0:
+        canonical = _ensure_player(db, _ANON_NAME, now)
+        current_keys.add(canonical)
+
+        if canonical not in _active_players:
+            _active_players[canonical] = {
+                **_new_active(canonical, server_id, server_name, now),
+                'anon_count': anon_count, 'last_accum_time': now,
+            }
+            db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
+                       (canonical, server_id, server_name, now))
+        else:
+            info = _active_players[canonical]
+            # 按上一次人数累计时长
+            elapsed = now - info.get('last_accum_time', info['login_time'])
+            if elapsed > 0 and info.get('anon_count', 0) > 0:
+                db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?",
+                           (elapsed * info['anon_count'], canonical))
+            info['anon_count'] = anon_count
+            info['last_accum_time'] = now
+            info['miss_count'] = 0
+            if info['server_id'] != server_id:
+                _end_active_session(db, canonical, now, info)
+                _active_players[canonical] = {
+                    **_new_active(canonical, server_id, server_name, now),
+                    'anon_count': anon_count, 'last_accum_time': now,
+                }
+                db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
+                           (canonical, server_id, server_name, now))
+
     db.commit()
     db.close()
 
+    # 离线判定
     ended = []
     for name, info in list(_active_players.items()):
         if name not in current_keys:
             info['miss_count'] += 1
             if info['miss_count'] >= _MISS_THRESHOLD:
-                duration = now - info['login_time']
                 edb = sqlite3.connect(DB_PATH)
-                edb.execute("UPDATE player_sessions SET logout_time=? WHERE player_name=? AND logout_time IS NULL", (now, name))
-                edb.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?", (duration, name))
+                extra = 0
+                if info.get('anon_count'):
+                    elapsed = now - info.get('last_accum_time', info['login_time'])
+                    extra = elapsed * info['anon_count']
+                _end_active_session(edb, name, now, info, extra)
                 edb.commit()
                 edb.close()
                 ended.append(name)
@@ -403,6 +462,8 @@ def get_players(filter_online: str | None = None, sort_by: str = 'name'):
         'current_server': _active_players[r['name']]['server_name'] if r['name'] in _active_players else '',
         'first_seen': r['first_seen'], 'last_seen': r['last_seen'],
         'total_online_seconds': round(r['total_online_seconds'] + (now - _active_players[r['name']]['login_time'] if r['name'] in _active_players else 0), 1),
+        'anonymous': r['name'] == _ANON_NAME,
+        'anon_count': _active_players[r['name']].get('anon_count', 0) if r['name'] in _active_players else 0,
     } for r in rows]
 
 
@@ -465,8 +526,11 @@ def get_player_detail(name: str):
 
     current_duration = (time.time() - info['login_time']) if is_online else 0
 
-    # 尝试获取 UUID
-    uuid = player['uuid'] or _fetch_player_uuid(player['name']) or ''
+    # 匿名玩家跳过 UUID 获取
+    uuid = ''
+    if player['name'] != _ANON_NAME:
+        uuid = player['uuid'] or _fetch_player_uuid(player['name']) or ''
+    anon_count = info.get('anon_count', 0) if is_online else 0
 
     return {
         'name': player['name'], 'uuid': uuid, 'online': is_online,
@@ -475,4 +539,5 @@ def get_player_detail(name: str):
         'total_online_seconds': round(player['total_online_seconds'] + current_duration, 1),
         'recent_servers': recent_servers[:10],
         'hourly_minutes': hourly_minutes,
+        'anon_count': anon_count,
     }
