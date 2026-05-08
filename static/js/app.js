@@ -299,7 +299,59 @@ function renderAdmin() {
       </div>
     `).join('');
   });
+  renderAdminPlayers();
 }
+
+let adminPlayerList = [];
+
+function renderAdminPlayers(filter) {
+  if (!adminPlayerList.length || !filter) {
+    fetch('/api/players').then(r => r.json()).then(players => {
+      adminPlayerList = players;
+      _renderAdminPlayerList(filter);
+    });
+  } else {
+    _renderAdminPlayerList(filter);
+  }
+}
+
+function _renderAdminPlayerList(filter) {
+  const list = document.getElementById('adminPlayerList');
+  let players = adminPlayerList;
+  if (filter) {
+    const q = filter.toLowerCase();
+    players = players.filter(p => p.name.toLowerCase().includes(q));
+  }
+  if (players.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);">无匹配玩家</div>';
+    return;
+  }
+  list.innerHTML = players.map(p => `
+    <div class="item">
+      <div class="info" style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;">
+        <img src="${avatarUrl(p.online ? p.uuid : null, p.name)}" alt="" style="width:22px;height:22px;border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
+        <strong style="flex-shrink:0;">${esc(p.name)}</strong>
+        <small style="color:var(--muted);font-family:'Consolas','Courier New',monospace;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.uuid)}</small>
+        <small style="color:var(--muted);font-size:0.75rem;">${formatDuration(p.total_online_seconds)}</small>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteAdminPlayer('${esc(p.uuid)}', '${esc(p.name)}')">
+        <svg class="svg-icon sm"><use href="#icon-close"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function deleteAdminPlayer(uuid, name) {
+  if (!confirm(`确定删除玩家 "${name}" 及其所有数据?`)) return;
+  fetch(`/api/players/${encodeURIComponent(uuid)}`, {method: 'DELETE'}).then(() => {
+    adminPlayerList = [];
+    renderAdminPlayers(document.getElementById('playerSearch').value);
+  });
+}
+
+document.getElementById('playerSearch').addEventListener('input', (e) => {
+  renderAdminPlayers(e.target.value);
+});
 
 document.getElementById('saveInterval').addEventListener('click', () => {
   const val = parseInt(document.getElementById('intervalInput').value) || 5;

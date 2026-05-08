@@ -3,6 +3,8 @@ import json
 import time
 import sqlite3
 import os
+import hashlib
+import uuid as _uuid
 from flask import g
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'monitor.db')
@@ -212,8 +214,19 @@ def get_history(server_id: int, range_str: str = None, start: float = None, end:
 
 # ---- Player Tracking ----
 
+def _offline_uuid(name: str) -> str:
+    """根据玩家名生成离线模式 UUID，与 Minecraft 原版一致"""
+    digest = hashlib.md5(f"OfflinePlayer:{name}".encode('utf-8')).digest()
+    ba = bytearray(digest)
+    ba[6] = (ba[6] & 0x0f) | 0x30
+    ba[8] = (ba[8] & 0x3f) | 0x80
+    return str(_uuid.UUID(bytes=bytes(ba)))
+
+
 def _player_key(p) -> str:
-    return p['id'] or p['name']
+    if p['id']:
+        return p['id']
+    return _offline_uuid(p['name'])
 
 
 _MISS_THRESHOLD = 3  # 连续 N 次不在样本中才判定离线
@@ -308,6 +321,17 @@ def get_player_list_at_time(server_id: int, timestamp: float):
         (server_id, timestamp)).fetchone()
     db.close()
     return json.loads(row['player_list']) if row and row['player_list'] else []
+
+
+def delete_player(uuid: str):
+    global _active_players
+    db = sqlite3.connect(DB_PATH)
+    db.execute('PRAGMA foreign_keys = ON')
+    db.execute("DELETE FROM player_sessions WHERE player_uuid=?", (uuid,))
+    db.execute("DELETE FROM players WHERE uuid=?", (uuid,))
+    db.commit()
+    db.close()
+    _active_players.pop(uuid, None)
 
 
 def get_player_detail(uuid: str):

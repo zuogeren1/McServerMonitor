@@ -9,7 +9,8 @@ from flask_socketio import SocketIO, emit
 from db import (
     init_db, get_all_servers, add_server, delete_server, update_server,
     set_check_interval, save_history, cleanup_old_history, get_history,
-    parse_address, track_players, get_players, get_player_detail, get_player_list_at_time, check_interval,
+    parse_address, track_players, get_players, get_player_detail, delete_player,
+    get_player_list_at_time, check_interval,
 )
 from mc_query import query_one_server
 
@@ -154,8 +155,11 @@ def api_players():
     return jsonify(get_players(filter_online=request.args.get('filter'), sort_by=request.args.get('sort', 'name')))
 
 
-@app.route('/api/players/<uuid>')
+@app.route('/api/players/<uuid>', methods=['GET', 'DELETE'])
 def api_player_detail(uuid):
+    if request.method == 'DELETE':
+        delete_player(uuid)
+        return jsonify({'ok': True})
     detail = get_player_detail(uuid)
     return jsonify(detail) if detail else (jsonify({'error': 'not found'}), 404)
 
