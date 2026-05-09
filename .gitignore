@@ -6,6 +6,9 @@ __pycache__/
 # Virtual environment
 .venv/
 
+# Config (contains auto-generated credentials)
+config.json
+
 # Database (contains runtime monitoring data, not source)
 *.db
 

@@ -92,7 +92,20 @@ themeToggle.addEventListener('click', () => {
 if (localStorage.getItem('theme') === 'light') setTheme('light');
 
 // ---- Navigation ----
-function switchPage(page) {
+let loggedIn = false;
+let _requireLoginEnabled = false;  // 由服务端 config 决定
+
+function _requireLogin(page) {
+  if (loggedIn || !_requireLoginEnabled) { switchPageDirect(page); return; }
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  _pendingLoginPage = page;
+}
+let _pendingLoginPage = null;
+
+function switchPageDirect(page) {
   currentPage = page;
   if (!['detail', 'player-detail'].includes(page)) prevPage = page;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -109,11 +122,20 @@ function switchPage(page) {
   }
 }
 
+function switchPage(page) {
+  if (['admin', 'player-manage'].includes(page)) {
+    _requireLogin(page);
+  } else {
+    switchPageDirect(page);
+  }
+}
+
 // ---- Render All ----
 function renderAll() {
   if (currentPage === 'home') renderHome();
   else if (currentPage === 'servers') renderServers();
   else if (currentPage === 'admin') renderAdmin();
+  else if (currentPage === 'player-manage') renderPlayerManage();
 }
 
 // ---- Home ----
@@ -306,96 +328,6 @@ function onPlayerClick(name) {
 // ---- Admin Page ----
 let editingServerId = null;
 
-function renderAdmin() {
-  fetch('/api/config').then(r => r.json()).then(c => {
-    document.getElementById('intervalInput').value = c.check_interval;
-  });
-  fetch('/api/servers').then(r => r.json()).then(servers => {
-    const list = document.getElementById('adminServerList');
-    if (servers.length === 0) {
-      list.innerHTML = '<div style="color:var(--muted);">暂无服务器</div>';
-      return;
-    }
-    list.innerHTML = servers.map(s => `
-      <div class="item">
-        <div class="info">
-          <strong>${esc(s.name)}</strong>
-          <small style="color:var(--muted);margin-left:0.5rem;">${fmtAddr(s.primary_host, s.primary_port)}</small>
-          ${s.backups.length > 0 ? `<small style="color:var(--muted);"> +${s.backups.length} 副地址</small>` : ''}
-        </div>
-        <div style="display:flex;gap:0.4rem;">
-          <button class="btn btn-outline btn-sm" onclick="editServer(${s.id})">
-            <svg class="svg-icon sm"><use href="#icon-edit"/></svg>
-          </button>
-          <button class="btn btn-danger btn-sm" onclick="deleteServer(${s.id})">
-            <svg class="svg-icon sm"><use href="#icon-close"/></svg>
-          </button>
-        </div>
-      </div>
-    `).join('');
-  });
-  renderAdminPlayers();
-}
-
-let adminPlayerList = [];
-
-function renderAdminPlayers(filter) {
-  if (!adminPlayerList.length || !filter) {
-    fetch('/api/players').then(r => r.json()).then(players => {
-      adminPlayerList = players;
-      _renderAdminPlayerList(filter);
-    });
-  } else {
-    _renderAdminPlayerList(filter);
-  }
-}
-
-function _renderAdminPlayerList(filter) {
-  const list = document.getElementById('adminPlayerList');
-  let players = adminPlayerList;
-  if (filter) {
-    const q = filter.toLowerCase();
-    players = players.filter(p => p.name.toLowerCase().includes(q));
-  }
-  if (players.length === 0) {
-    list.innerHTML = '<div style="color:var(--muted);">无匹配玩家</div>';
-    return;
-  }
-  list.innerHTML = players.map(p => `
-    <div class="item">
-      <div class="info" style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;">
-        <img src="${avatarUrl(p.uuid, p.name)}" alt="" style="width:22px;height:22px;border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
-        <strong style="flex-shrink:0;">${esc(p.name)}</strong>
-        <small style="color:var(--muted);font-family:'Consolas','Courier New',monospace;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.uuid || '')}</small>
-        <small style="color:var(--muted);font-size:0.75rem;">${formatDuration(p.total_online_seconds)}</small>
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteAdminPlayer('${esc(p.name)}')">
-        <svg class="svg-icon sm"><use href="#icon-close"/></svg>
-      </button>
-    </div>
-  `).join('');
-}
-
-function deleteAdminPlayer(name) {
-  if (!confirm(`确定删除玩家 "${name}" 及其所有数据?`)) return;
-  fetch(`/api/players/${encodeURIComponent(name)}`, {method: 'DELETE'}).then(() => {
-    adminPlayerList = [];
-    renderAdminPlayers(document.getElementById('playerSearch').value);
-  });
-}
-
-document.getElementById('playerSearch').addEventListener('input', (e) => {
-  renderAdminPlayers(e.target.value);
-});
-
-document.getElementById('saveInterval').addEventListener('click', () => {
-  const val = parseInt(document.getElementById('intervalInput').value) || 5;
-  fetch('/api/config', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({check_interval: val})
-  });
-});
-
 document.getElementById('addBackupBtn').addEventListener('click', () => {
   const container = document.getElementById('backupList');
   const idx = container.children.length + 1;
@@ -485,6 +417,142 @@ function deleteServer(sid) {
   fetch(`/api/servers/${sid}`, {method: 'DELETE'}).then(() => renderAdmin());
 }
 
+// ---- Login Modal ----
+document.getElementById('loginSubmit').addEventListener('click', async () => {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const resp = await fetch('/api/login', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username, password}),
+  });
+  if (resp.ok) {
+    loggedIn = true;
+    document.getElementById('loginOverlay').style.display = 'none';
+    if (_pendingLoginPage) switchPageDirect(_pendingLoginPage);
+  } else {
+    const data = await resp.json();
+    document.getElementById('loginError').textContent = data.error || '登录失败';
+    document.getElementById('loginError').style.display = 'block';
+  }
+});
+
+document.getElementById('loginCancel').addEventListener('click', () => {
+  document.getElementById('loginOverlay').style.display = 'none';
+  _pendingLoginPage = null;
+});
+
+// Enter key in password field submits login
+document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('loginSubmit').click();
+});
+
+// ---- Admin Settings ----
+function renderAdmin() {
+  // Load config (username, check_interval)
+  fetch('/api/config').then(r => r.json()).then(c => {
+    document.getElementById('intervalInput').value = c.check_interval;
+    document.getElementById('authUsername').value = c.username || '';
+    document.getElementById('authPassword').value = '';
+  });
+  fetch('/api/servers').then(r => r.json()).then(servers => {
+    const list = document.getElementById('adminServerList');
+    if (servers.length === 0) {
+      list.innerHTML = '<div style="color:var(--muted);">暂无服务器</div>';
+      return;
+    }
+    list.innerHTML = servers.map(s => `
+      <div class="item">
+        <div class="info">
+          <strong>${esc(s.name)}</strong>
+          <small style="color:var(--muted);margin-left:0.5rem;">${fmtAddr(s.primary_host, s.primary_port)}</small>
+          ${s.backups.length > 0 ? `<small style="color:var(--muted);"> +${s.backups.length} 副地址</small>` : ''}
+        </div>
+        <div style="display:flex;gap:0.4rem;">
+          <button class="btn btn-outline btn-sm" onclick="editServer(${s.id})">
+            <svg class="svg-icon sm"><use href="#icon-edit"/></svg>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteServer(${s.id})">
+            <svg class="svg-icon sm"><use href="#icon-close"/></svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  });
+}
+
+document.getElementById('saveSettings').addEventListener('click', () => {
+  const check_interval = parseInt(document.getElementById('intervalInput').value) || 5;
+  const username = document.getElementById('authUsername').value.trim();
+  const password = document.getElementById('authPassword').value;
+  fetch('/api/admin/config', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({check_interval, username, password}),
+  }).then(() => {
+    document.getElementById('authPassword').value = '';
+    alert('设置已保存');
+  });
+});
+
+// Remove old saveInterval handler (replaced by saveSettings)
+const oldSaveInterval = document.getElementById('saveInterval');
+if (oldSaveInterval) oldSaveInterval.remove();
+
+// ---- Player Manage Page ----
+let adminPlayerList = [];
+
+function renderPlayerManage() {
+  _renderPlayerManageList();
+}
+
+function _renderPlayerManageList(filter) {
+  if (!adminPlayerList.length || !filter) {
+    fetch('/api/players').then(r => r.json()).then(players => {
+      adminPlayerList = players;
+      _doRenderPlayerManageList(filter);
+    });
+  } else {
+    _doRenderPlayerManageList(filter);
+  }
+}
+
+function _doRenderPlayerManageList(filter) {
+  const list = document.getElementById('adminPlayerList');
+  let players = adminPlayerList;
+  if (filter) {
+    const q = filter.toLowerCase();
+    players = players.filter(p => p.name.toLowerCase().includes(q));
+  }
+  if (players.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);">无匹配玩家</div>';
+    return;
+  }
+  list.innerHTML = players.map(p => `
+    <div class="item">
+      <div class="info" style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;">
+        <img src="${avatarUrl(p.uuid, p.name)}" alt="" style="width:22px;height:22px;border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
+        <strong style="flex-shrink:0;">${esc(p.name)}</strong>
+        <small style="color:var(--muted);font-family:'Consolas','Courier New',monospace;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.uuid || '')}</small>
+        <small style="color:var(--muted);font-size:0.75rem;">${formatDuration(p.total_online_seconds)}</small>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteAdminPlayer('${esc(p.name)}')">
+        <svg class="svg-icon sm"><use href="#icon-close"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function deleteAdminPlayer(name) {
+  if (!confirm(`确定删除玩家 "${name}" 及其所有数据?`)) return;
+  fetch(`/api/players/${encodeURIComponent(name)}`, {method: 'DELETE'}).then(() => {
+    adminPlayerList = [];
+    _renderPlayerManageList(document.getElementById('playerSearch').value);
+  });
+}
+
+document.getElementById('playerSearch').addEventListener('input', (e) => {
+  _renderPlayerManageList(e.target.value);
+});
+
 // ---- WebSocket ----
 socket.on('status_update', (data) => {
   currentStatuses = data;
@@ -517,4 +585,5 @@ function esc(str) {
 // Initial config load
 fetch('/api/config').then(r => r.json()).then(c => {
   document.getElementById('intervalInput').value = c.check_interval;
+  _requireLoginEnabled = c.require_login || false;
 });

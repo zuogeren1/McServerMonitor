@@ -15,7 +15,7 @@
     <symbol id="icon-cube" viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 12L3 7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12l9-5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12v10" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
     <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v11a1 1 0 01-1 1H4a1 1 0 01-1-1V10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 21V12h6v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
     <symbol id="icon-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="6" r="1" fill="currentColor"/><rect x="2" y="14" width="20" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="18" r="1" fill="currentColor"/></symbol>
-    <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M9.408 4.96L10 2h4l.592 2.96a7.5 7.5 0 012.207 1.276l2.861-.968l2 3.464l-2.268 1.993a7.5 7.5 0 010 2.55l2.268 1.993l-2 3.464l-2.861-.968a7.5 7.5 0 01-2.207 1.276L14 22h-4l-.592-2.96a7.5 7.5 0 01-2.207-1.276l-2.861.968l-2-3.464l2.268-1.993a7.6 7.6 0 010-2.55L2.34 8.732l2-3.464l2.861.968A7.5 7.5 0 019.408 4.96z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
     <symbol id="icon-overview" viewBox="0 0 24 24"><rect x="2" y="2" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="2" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="2" y="13" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="13" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
     <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 17v-6M12 7v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="icon-players" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14 18c0-2 2-4 4-4s4 2 4 4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
@@ -58,6 +58,10 @@
       <span class="nav-label">玩家</span>
     </div>
     <div class="spacer"></div>
+    <div class="nav-item" data-page="player-manage" data-tooltip="玩家管理">
+      <span class="nav-icon"><svg class="svg-icon"><use href="#icon-list"/></svg></span>
+      <span class="nav-label">玩家管理</span>
+    </div>
     <div class="nav-item" data-page="admin" data-tooltip="管理">
       <span class="nav-icon"><svg class="svg-icon"><use href="#icon-settings"/></svg></span>
       <span class="nav-label">管理</span>
@@ -162,16 +166,6 @@
   <div class="page" id="page-admin">
     <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-settings"/></svg> 管理</h2></div>
     <div class="admin-section">
-      <h3><svg class="svg-icon"><use href="#icon-clock"/></svg> 检测间隔</h3>
-      <div class="form-row" style="align-items:flex-end;">
-        <div class="form-group" style="max-width:200px;">
-          <label>间隔 (秒)</label>
-          <input type="number" id="intervalInput" value="5" min="1" max="300">
-        </div>
-        <button class="btn btn-primary btn-sm" id="saveInterval" style="margin-bottom:3px;">保存</button>
-      </div>
-    </div>
-    <div class="admin-section">
       <h3 id="formTitle"><svg class="svg-icon"><use href="#icon-plus"/></svg> 添加服务器</h3>
       <input type="hidden" id="editServerId">
       <div class="form-group"><label>服务器名称</label><input type="text" id="srvName" placeholder="例如：我的生存服"></div>
@@ -190,12 +184,32 @@
       <div class="server-list-admin" id="adminServerList"><div style="color:var(--muted);">暂无服务器</div></div>
     </div>
     <div class="admin-section">
-      <h3><svg class="svg-icon"><use href="#icon-players"/></svg> 玩家管理</h3>
-      <div style="margin-bottom:0.75rem;display:flex;gap:0.5rem;">
-        <input type="text" id="playerSearch" placeholder="搜索玩家名称..." style="flex:1;padding:0.45rem 0.65rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;outline:none;">
+      <h3><svg class="svg-icon"><use href="#icon-settings"/></svg> 凭据与检测间隔</h3>
+      <div class="form-row" style="margin-bottom:0.6rem;">
+        <div class="form-group" style="max-width:160px;">
+          <label>用户名</label>
+          <input type="text" id="authUsername" value="" style="font-size:0.85rem;">
+        </div>
+        <div class="form-group" style="max-width:160px;">
+          <label>密码</label>
+          <input type="password" id="authPassword" value="" placeholder="留空不修改" style="font-size:0.85rem;">
+        </div>
+        <div class="form-group" style="max-width:120px;">
+          <label>检测间隔 (秒)</label>
+          <input type="number" id="intervalInput" value="5" min="1" max="300">
+        </div>
+        <button class="btn btn-primary btn-sm" id="saveSettings" style="margin-bottom:3px;">保存</button>
       </div>
-      <div class="server-list-admin" id="adminPlayerList"><div style="color:var(--muted);">加载中...</div></div>
     </div>
+  </div>
+
+  <!-- Player Manage Page -->
+  <div class="page" id="page-player-manage">
+    <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-list"/></svg> 玩家管理</h2></div>
+    <div style="margin-bottom:0.75rem;display:flex;gap:0.5rem;">
+      <input type="text" id="playerSearch" placeholder="搜索玩家名称..." style="flex:1;padding:0.45rem 0.65rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;outline:none;">
+    </div>
+    <div class="server-list-admin" id="adminPlayerList"><div style="color:var(--muted);">加载中...</div></div>
   </div>
 
   <!-- Server Detail Page -->
@@ -269,6 +283,28 @@
         <button class="btn btn-outline btn-sm" id="unpinBtn">取消固定</button>
       </h4>
       <div class="player-grid" id="pinnedPlayerList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Login Modal -->
+<div class="login-overlay" id="loginOverlay" style="display:none;">
+  <div class="login-card">
+    <h3 style="margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem;">
+      <svg class="svg-icon"><use href="#icon-settings"/></svg> 管理员登录
+    </h3>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="loginUsername" placeholder="admin">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="输入密码">
+    </div>
+    <div id="loginError" style="color:var(--offline);font-size:0.8rem;margin-bottom:0.5rem;display:none;"></div>
+    <div style="display:flex;gap:0.5rem;">
+      <button class="btn btn-primary" id="loginSubmit">登录</button>
+      <button class="btn btn-outline" id="loginCancel">取消</button>
     </div>
   </div>
 </div>

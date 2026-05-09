@@ -1,16 +1,20 @@
 import eventlet
 eventlet.monkey_patch()
 
+import json
+import os
+import secrets
 import threading
 import time
-from flask import Flask, render_template, jsonify, request
+from functools import wraps
+from flask import Flask, render_template, jsonify, request, session
 from flask_socketio import SocketIO, emit
 
 from db import (
     init_db, get_all_servers, add_server, delete_server, update_server,
-    set_check_interval, save_history, cleanup_old_history, get_history,
+    save_history, cleanup_old_history, get_history,
     parse_address, track_players, get_players, get_player_detail, delete_player,
-    get_player_list_at_time, check_interval,
+    get_player_list_at_time,
 )
 from mc_query import query_one_server
 
@@ -21,7 +25,47 @@ socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 server_statuses: dict[int, dict] = {}
 _cleanup_counter = 0
 
+# ---- Config File ----
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 
+
+def load_config():
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    # 首次启动：生成随机凭据
+    cfg = {
+        'username': 'admin',
+        'password': secrets.token_hex(6),
+        'check_interval': 5,
+        'require_login': True,
+    }
+    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+    print(f'[init] 已生成 config.json，密码: {cfg["password"]}')
+    return cfg
+
+
+def save_config(cfg):
+    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+
+
+_config = load_config()
+check_interval = _config['check_interval']
+
+
+# ---- Auth ----
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if _config.get('require_login', False) and not session.get('logged_in'):
+            return jsonify({'error': 'unauthorized'}), 401
+        return f(*args, **kwargs)
+    return wrapper
+
+
+# ---- Poll Loop ----
 def query_all_servers():
     global server_statuses
     servers = get_all_servers()
@@ -32,7 +76,6 @@ def query_all_servers():
         save_history(s['id'], status)
         track_players(s['id'], status['server_name'], status['players']['list'])
         current_ids.add(s['id'])
-    # 清理已从数据库删除但仍在内存中的 stale 状态
     for sid in list(server_statuses.keys()):
         if sid not in current_ids:
             del server_statuses[sid]
@@ -68,9 +111,38 @@ def api_single_status(sid):
     return jsonify(s) if s else (jsonify({'error': 'not found'}), 404)
 
 
+@app.route('/api/config', methods=['GET'])
+def api_config():
+    return jsonify({
+        'check_interval': _config['check_interval'],
+        'need_login': _config.get('require_login', False) and not session.get('logged_in'),
+        'username': _config['username'],
+        'require_login': _config.get('require_login', False),
+    })
+
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    if data.get('username') == _config['username'] and data.get('password') == _config['password']:
+        session['logged_in'] = True
+        return jsonify({'ok': True, 'username': _config['username']})
+    return jsonify({'error': '用户名或密码错误'}), 401
+
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    session.pop('logged_in', None)
+    return jsonify({'ok': True})
+
+
+# ---- Admin (需登录) ----
+
 @app.route('/api/servers', methods=['GET', 'POST'])
 def api_servers():
     if request.method == 'POST':
+        if _config.get('require_login', False) and not session.get('logged_in'):
+            return jsonify({'error': 'unauthorized'}), 401
         data = request.get_json()
         backups = []
         for b_str in data.get('backups', []):
@@ -97,6 +169,8 @@ def api_servers():
 
 @app.route('/api/servers/<int:sid>', methods=['PUT', 'DELETE'])
 def api_server_detail(sid):
+    if _config.get('require_login', False) and not session.get('logged_in'):
+        return jsonify({'error': 'unauthorized'}), 401
     if request.method == 'DELETE':
         delete_server(sid)
         server_statuses.pop(sid, None)
@@ -140,13 +214,21 @@ def api_player_list_at(sid):
     return jsonify(get_player_list_at_time(sid, float(ts)))
 
 
-@app.route('/api/config', methods=['GET', 'POST'])
-def api_config():
-    if request.method == 'POST':
-        data = request.get_json()
-        if 'check_interval' in data:
-            set_check_interval(int(data['check_interval']))
-        return jsonify({'check_interval': check_interval})
+@app.route('/api/admin/config', methods=['POST'])
+def api_admin_config():
+    if _config.get('require_login', False) and not session.get('logged_in'):
+        return jsonify({'error': 'unauthorized'}), 401
+    global check_interval
+    data = request.get_json()
+    if 'check_interval' in data:
+        _config['check_interval'] = int(data['check_interval'])
+        check_interval = _config['check_interval']
+        save_config(_config)
+    if 'username' in data and 'password' in data:
+        if data['password']:
+            _config['username'] = data['username']
+            _config['password'] = data['password']
+            save_config(_config)
     return jsonify({'check_interval': check_interval})
 
 
@@ -158,6 +240,8 @@ def api_players():
 @app.route('/api/players/<path:name>', methods=['GET', 'DELETE'])
 def api_player_detail(name):
     if request.method == 'DELETE':
+        if _config.get('require_login', False) and not session.get('logged_in'):
+            return jsonify({'error': 'unauthorized'}), 401
         delete_player(name)
         return jsonify({'ok': True})
     detail = get_player_detail(name)
@@ -178,6 +262,7 @@ def on_refresh():
 
 if __name__ == '__main__':
     ci = init_db()
+    _config['check_interval'] = ci
     import db
     db.check_interval = ci
     servers = get_all_servers()

@@ -145,6 +145,29 @@ async function loadPlayerDetail(name) {
   const ctx = document.getElementById('pdHourlyChart').getContext('2d');
   const chartIsMobile = window.matchMedia('(max-width: 768px)').matches;
   if (pdHourlyChart) pdHourlyChart.destroy();
+
+  const barLabelPlugin = {
+    id: 'barLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx, scales: { x, y }, data } = chart;
+      const dataset = data.datasets[0];
+      const labelFont = chartIsMobile ? 8 : 9;
+      ctx.save();
+      ctx.font = `${labelFont}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#94a3b8';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const meta = chart.getDatasetMeta(0);
+      for (let i = 0; i < dataset.data.length; i++) {
+        const val = dataset.data[i];
+        if (!val) continue;
+        const bar = meta.data[i];
+        ctx.fillText(val.toFixed(1), bar.x, bar.y - 2);
+      }
+      ctx.restore();
+    },
+  };
+
   pdHourlyChart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -188,5 +211,6 @@ async function loadPlayerDetail(name) {
         },
       },
     },
+    plugins: [barLabelPlugin],
   });
 }

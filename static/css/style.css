@@ -282,6 +282,20 @@ body {
 .scrollbar-thumb:hover { opacity: 0.55; }
 .scrollbar-thumb:active { cursor: grabbing; opacity: 0.65; }
 
+/* Login Modal */
+.login-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.login-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.5rem;
+  width: min(360px, 90vw);
+}
+.login-card h3 { font-size: 1rem; color: var(--text); }
+.login-card .form-group input { font-size: 16px; } /* 防 iOS 缩放 */
+
 /* Empty state */
 .empty-note { color: var(--muted); text-align: center; margin-top: 2rem; }
 .empty-note a { color: var(--accent); cursor: pointer; text-decoration: none; }
