@@ -155,7 +155,7 @@ def api_servers():
             primary_host = data.get('primary_host', '127.0.0.1')
             primary_port = int(data.get('primary_port', 25565))
 
-        sid = add_server(data['name'], primary_host, primary_port, backups)
+        sid = add_server(data['name'], primary_host, primary_port, backups, data.get('server_type', 'java'))
         servers = get_all_servers()
         for info in servers:
             if info['id'] == sid:
@@ -189,7 +189,7 @@ def api_server_detail(sid):
         primary_host = data.get('primary_host', '127.0.0.1')
         primary_port = int(data.get('primary_port', 25565))
 
-    update_server(sid, data['name'], primary_host, primary_port, backups)
+    update_server(sid, data['name'], primary_host, primary_port, backups, data.get('server_type', 'java'))
     servers = get_all_servers()
     for info in servers:
         if info['id'] == sid:

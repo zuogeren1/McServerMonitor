@@ -1,5 +1,5 @@
 from html import escape as html_escape
-from mcstatus import JavaServer
+from mcstatus import JavaServer, BedrockServer
 
 _SECTION_COLORS = {
     '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
@@ -74,9 +74,27 @@ def _convert_motd_line(text: str) -> str:
     return ''.join(result)
 
 
-def try_single_address(host: str, port: int | None, timeout: float = 2.0) -> dict | None:
+def try_single_address(host: str, port: int | None, timeout: float = 2.0, server_type: str = 'java') -> dict | None:
     try:
         addr = host if port is None else f'{host}:{port}'
+        if server_type == 'bedrock':
+            srv = BedrockServer.lookup(addr, timeout=timeout)
+            st = srv.status()
+            return {
+                'online': True,
+                'host': host, 'port': port,
+                'version': st.version.name, 'protocol': st.version.protocol,
+                'brand': getattr(st.version, 'brand', ''),
+                'motd': st.motd.to_plain(), 'motd_html': html_escape(st.motd.to_plain()),
+                'latency': round(st.latency, 1),
+                'players': {
+                    'online': st.players.online, 'max': st.players.max,
+                    'list': [],
+                },
+                'map_name': getattr(st, 'map_name', None) or '',
+                'gamemode': getattr(st, 'gamemode', None) or '',
+                'icon': None, 'error': None,
+            }
         srv = JavaServer.lookup(addr, timeout=timeout)
         st = srv.status()
         players = st.players
@@ -98,6 +116,7 @@ def try_single_address(host: str, port: int | None, timeout: float = 2.0) -> dic
 
 
 def query_one_server(server_info: dict) -> dict:
+    server_type = server_info.get('server_type', 'java')
     addresses = [(server_info['primary_host'], server_info['primary_port'], 'primary')]
     for b in server_info.get('backups', []):
         addresses.append((b['host'], b['port'], 'backup'))
@@ -106,7 +125,7 @@ def query_one_server(server_info: dict) -> dict:
     backup_statuses = []
 
     for host, port, addr_type in addresses:
-        result = try_single_address(host, port)
+        result = try_single_address(host, port, server_type=server_type)
         if addr_type == 'primary':
             if result:
                 active_status = result
@@ -123,19 +142,25 @@ def query_one_server(server_info: dict) -> dict:
     if active_status is None:
         return {
             'online': False, 'server_id': server_info['id'], 'server_name': server_info['name'],
+            'server_type': server_type,
             'active_host': server_info['primary_host'], 'active_port': server_info['primary_port'],
             'version': None, 'protocol': None, 'motd': None, 'motd_html': None,
             'latency': None, 'icon': None,
             'players': {'online': 0, 'max': 0, 'list': []},
             'backup_statuses': backup_statuses, 'error': '所有地址均无法连接',
+            'map_name': '', 'gamemode': '', 'brand': '',
         }
 
     return {
         'online': True, 'server_id': server_info['id'], 'server_name': server_info['name'],
+        'server_type': server_type,
         'active_host': active_status['host'], 'active_port': active_status['port'],
         'version': active_status['version'], 'protocol': active_status['protocol'],
         'motd': active_status['motd'], 'motd_html': active_status.get('motd_html'),
-        'latency': active_status['latency'], 'icon': active_status['icon'],
+        'latency': active_status['latency'], 'icon': active_status.get('icon'),
         'players': active_status['players'],
         'backup_statuses': backup_statuses, 'error': None,
+        'map_name': active_status.get('map_name', ''),
+        'gamemode': active_status.get('gamemode', ''),
+        'brand': active_status.get('brand', ''),
     }

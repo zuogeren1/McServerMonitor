@@ -153,7 +153,7 @@ function renderHome() {
     <div class="server-card" onclick="openDetail(${s.server_id})">
       <div class="card-top">
         <div>
-          <div class="card-name">${esc(s.server_name)}</div>
+          <div class="card-name">${esc(s.server_name)} <span class="type-badge type-${s.server_type || 'java'}">${s.server_type === 'bedrock' ? '基岩' : 'Java'}</span></div>
           <div class="card-addr">${fmtAddr(s.active_host, s.active_port)}</div>
         </div>
         <span class="status-tag ${s.online ? 'online' : 'offline'}">${s.online ? '在线' : '离线'}</span>
@@ -183,7 +183,7 @@ function renderServers() {
     <div class="server-card" onclick="openDetail(${s.server_id})">
       <div class="card-top">
         <div>
-          <div class="card-name">${esc(s.server_name)}</div>
+          <div class="card-name">${esc(s.server_name)} <span class="type-badge type-${s.server_type || 'java'}">${s.server_type === 'bedrock' ? '基岩' : 'Java'}</span></div>
           <div class="card-addr">${fmtAddr(s.active_host, s.active_port)}</div>
         </div>
         <span class="status-tag ${s.online ? 'online' : 'offline'}">${s.online ? '在线' : '离线'}</span>
@@ -260,7 +260,7 @@ function loadDetailPage(sid) {
   if (!s) return;
 
   updatePlayerNotifBtn(sid);
-  document.getElementById('detailTitle').textContent = s.server_name;
+  document.getElementById('detailTitle').innerHTML = esc(s.server_name) + ' <span class="type-badge type-' + (s.server_type || 'java') + '">' + (s.server_type === 'bedrock' ? '基岩' : 'Java') + '</span>';
   document.getElementById('detailAddr').textContent = fmtAddr(s.active_host, s.active_port);
   const tag = document.getElementById('detailStatusTag');
   tag.textContent = s.online ? '在线' : '离线';
@@ -271,6 +271,16 @@ function loadDetailPage(sid) {
   _setTextSafe(document.getElementById('dLatency'), s.latency != null ? s.latency + ' ms' : '--');
   _setTextSafe(document.getElementById('dPlayers'), s.players.online + ' / ' + s.players.max);
   document.getElementById('dMotd').innerHTML = s.motd_html || esc(s.motd) || '--';
+
+  const bedrockInfo = document.getElementById('dBedrockInfo');
+  if (s.server_type === 'bedrock' && s.online) {
+    bedrockInfo.style.display = '';
+    _setTextSafe(document.getElementById('dBedrockMap'), s.map_name || '--');
+    _setTextSafe(document.getElementById('dBedrockGamemode'), s.gamemode || '--');
+    _setTextSafe(document.getElementById('dBedrockBrand'), s.brand || '--');
+  } else {
+    bedrockInfo.style.display = 'none';
+  }
 
   const playerList = s.players.list || [];
   const plEl = document.getElementById('dPlayerList');
@@ -370,7 +380,8 @@ document.getElementById('saveServer').addEventListener('click', () => {
   if (!name || !addr) { alert('请填写服务器名称和主地址'); return;
   }
 
-  const data = { name, primary_address: addr, backups: getBackups() };
+  const srvType = document.querySelector('input[name="srvType"]:checked').value;
+  const data = { name, primary_address: addr, backups: getBackups(), server_type: srvType };
   const isEdit = !!editingServerId;
   const url = isEdit ? `/api/servers/${editingServerId}` : '/api/servers';
   const method = isEdit ? 'PUT' : 'POST';
@@ -389,6 +400,8 @@ function resetForm() {
   document.getElementById('srvName').value = '';
   document.getElementById('srvAddr').value = '';
   document.getElementById('backupList').innerHTML = '';
+  const javaRadio = document.querySelector('input[name="srvType"][value="java"]');
+  if (javaRadio) javaRadio.checked = true;
   document.getElementById('formTitle').innerHTML = '<svg class="svg-icon"><use href="#icon-plus"/></svg> 添加服务器';
   document.getElementById('cancelEdit').style.display = 'none';
   document.getElementById('saveServer').innerHTML = '<svg class="svg-icon sm"><use href="#icon-check"/></svg> 保存服务器';
@@ -402,6 +415,8 @@ function editServer(sid) {
     document.getElementById('editServerId').value = sid;
     document.getElementById('srvName').value = s.name;
     document.getElementById('srvAddr').value = s.primary_port != null ? s.primary_host + ':' + s.primary_port : s.primary_host;
+    const typeRadio = document.querySelector('input[name="srvType"][value="' + (s.server_type || 'java') + '"]');
+    if (typeRadio) typeRadio.checked = true;
     document.getElementById('formTitle').innerHTML = '<svg class="svg-icon"><use href="#icon-edit"/></svg> 编辑服务器';
     document.getElementById('cancelEdit').style.display = '';
     document.getElementById('saveServer').innerHTML = '<svg class="svg-icon sm"><use href="#icon-check"/></svg> 更新服务器';
@@ -476,6 +491,7 @@ function renderAdmin() {
       <div class="item">
         <div class="info">
           <strong>${esc(s.name)}</strong>
+          <span class="type-badge type-${s.server_type || 'java'}">${s.server_type === 'bedrock' ? '基岩' : 'Java'}</span>
           <small style="color:var(--muted);margin-left:0.5rem;">${fmtAddr(s.primary_host, s.primary_port)}</small>
           ${s.backups.length > 0 ? `<small style="color:var(--muted);"> +${s.backups.length} 副地址</small>` : ''}
         </div>

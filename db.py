@@ -109,7 +109,11 @@ def init_db():
     db.execute('''CREATE TABLE IF NOT EXISTS servers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL, primary_host TEXT NOT NULL DEFAULT '127.0.0.1',
-        primary_port INTEGER)''')
+        primary_port INTEGER, server_type TEXT NOT NULL DEFAULT 'java')''')
+    try:
+        db.execute("ALTER TABLE servers ADD COLUMN server_type TEXT NOT NULL DEFAULT 'java'")
+    except sqlite3.OperationalError:
+        pass
     db.execute('''CREATE TABLE IF NOT EXISTS backup_addresses (
         id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL,
         host TEXT NOT NULL, port INTEGER, priority INTEGER NOT NULL DEFAULT 0,
@@ -169,16 +173,17 @@ def get_all_servers():
         result.append({
             'id': s['id'], 'name': s['name'],
             'primary_host': s['primary_host'], 'primary_port': s['primary_port'],
+            'server_type': s['server_type'] if 'server_type' in s.keys() else 'java',
             'backups': [{'id': b['id'], 'host': b['host'], 'port': b['port'], 'priority': b['priority']} for b in backups],
         })
     db.close()
     return result
 
 
-def add_server(name, primary_host, primary_port, backups):
+def add_server(name, primary_host, primary_port, backups, server_type='java'):
     db = sqlite3.connect(DB_PATH)
     db.execute('PRAGMA foreign_keys = ON')
-    cur = db.execute("INSERT INTO servers (name, primary_host, primary_port) VALUES (?, ?, ?)", (name, primary_host, primary_port))
+    cur = db.execute("INSERT INTO servers (name, primary_host, primary_port, server_type) VALUES (?, ?, ?, ?)", (name, primary_host, primary_port, server_type))
     sid = cur.lastrowid
     for i, b in enumerate(backups):
         db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (sid, b['host'], b['port'], i))
@@ -197,10 +202,10 @@ def delete_server(server_id):
     db.close()
 
 
-def update_server(server_id, name, primary_host, primary_port, backups):
+def update_server(server_id, name, primary_host, primary_port, backups, server_type='java'):
     db = sqlite3.connect(DB_PATH)
     db.execute('PRAGMA foreign_keys = ON')
-    db.execute("UPDATE servers SET name=?, primary_host=?, primary_port=? WHERE id=?", (name, primary_host, primary_port, server_id))
+    db.execute("UPDATE servers SET name=?, primary_host=?, primary_port=?, server_type=? WHERE id=?", (name, primary_host, primary_port, server_type, server_id))
     db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
     for i, b in enumerate(backups):
         db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (server_id, b['host'], b['port'], i))

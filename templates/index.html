@@ -169,6 +169,17 @@
       <h3 id="formTitle"><svg class="svg-icon"><use href="#icon-plus"/></svg> 添加服务器</h3>
       <input type="hidden" id="editServerId">
       <div class="form-group"><label>服务器名称</label><input type="text" id="srvName" placeholder="例如：我的生存服"></div>
+      <div class="form-group">
+        <label>服务器类型</label>
+        <div style="display:flex;gap:1rem;">
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;font-weight:400;">
+            <input type="radio" name="srvType" value="java" checked style="width:auto;"> Java 版
+          </label>
+          <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;font-weight:400;">
+            <input type="radio" name="srvType" value="bedrock" style="width:auto;"> 基岩版
+          </label>
+        </div>
+      </div>
       <div class="form-group"><label>主地址 (域名或 host:port，无端口时自动 SRV 解析)</label><input type="text" id="srvAddr" placeholder="mc.example.com 或 127.0.0.1:25565"></div>
       <div class="form-group">
         <label style="display:flex;align-items:center;justify-content:space-between;">副地址 (备选)<button class="btn btn-outline btn-sm" id="addBackupBtn">+ 添加</button></label>
@@ -239,6 +250,11 @@
         <div class="info-row"><span class="lbl">延迟</span><span class="val" id="dLatency">--</span></div>
         <div class="info-row"><span class="lbl">在线玩家</span><span class="val" id="dPlayers">--</span></div>
         <div class="info-row"><span class="lbl">MOTD</span><span class="val" id="dMotd" style="font-family:'Consolas','Courier New',monospace;font-size:0.8rem;">--</span></div>
+        <div id="dBedrockInfo" style="display:none;">
+          <div class="info-row"><span class="lbl">地图</span><span class="val" id="dBedrockMap">--</span></div>
+          <div class="info-row"><span class="lbl">模式</span><span class="val" id="dBedrockGamemode">--</span></div>
+          <div class="info-row"><span class="lbl">品牌</span><span class="val" id="dBedrockBrand">--</span></div>
+        </div>
       </div>
       <div class="panel">
         <h4><svg class="svg-icon sm"><use href="#icon-players"/></svg> 在线玩家</h4>
