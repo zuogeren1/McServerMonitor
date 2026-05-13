@@ -12,6 +12,9 @@ config.json
 # Database (contains runtime monitoring data, not source)
 *.db
 
+#backup
+backup/
+
 # IDE / Editor
 .vscode/
 .idea/
@@ -23,5 +26,5 @@ Thumbs.db
 # Claude Code internal config
 .claude/
 
-powershell
+#powershell
 start.ps1

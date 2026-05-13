@@ -88,7 +88,7 @@
 
   <!-- Home Page -->
   <div class="page active" id="page-home">
-    <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-overview"/></svg> 概览</h2></div>
+    <div class="page-header"><h2><svg class="svg-icon"><use href="#icon-overview"/></svg> 概览</h2><button class="btn btn-sm btn-outline" id="notifToggle" onclick="toggleServerNotif()" style="margin-left:auto;">通知: 关</button></div>
     <div class="stats-bar">
       <div class="stat-box"><div class="stat-num" id="totalServers">0</div><div class="stat-label">服务器总数</div></div>
       <div class="stat-box"><div class="stat-num online-count" id="onlineServers">0</div><div class="stat-label">在线服务器</div></div>
@@ -201,6 +201,12 @@
         <button class="btn btn-primary btn-sm" id="saveSettings" style="margin-bottom:3px;">保存</button>
       </div>
     </div>
+    <div class="admin-section">
+      <h3><svg class="svg-icon"><use href="#icon-backup"/></svg> 数据库优化</h3>
+      <p style="color:var(--muted);font-size:0.8rem;margin-bottom:0.6rem;">聚合 24 小时前的历史数据以缩减数据库体积，优化前自动备份。</p>
+      <button class="btn btn-outline btn-sm" id="optimizeDbBtn" onclick="showOptimizeDialog()">优化数据库</button>
+      <span id="optimizeStatus" style="color:var(--muted);font-size:0.8rem;margin-left:0.5rem;"></span>
+    </div>
   </div>
 
   <!-- Player Manage Page -->
@@ -223,6 +229,7 @@
         <div class="card-addr" id="detailAddr" style="margin-top:2px;"></div>
       </div>
       <span class="status-tag" id="detailStatusTag" style="margin-left:auto;">离线</span>
+      <button class="btn btn-sm btn-outline" id="playerNotifBtn" onclick="togglePlayerNotif(detailServerId)" title="仅在玩家数量小于等于12位时进行通知" style="margin-left:0.5rem;">玩家通知: 关</button>
     </div>
     <div class="detail-panels">
       <div class="panel">
@@ -283,6 +290,28 @@
         <button class="btn btn-outline btn-sm" id="unpinBtn">取消固定</button>
       </h4>
       <div class="player-grid" id="pinnedPlayerList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Optimize Modal -->
+<div class="login-overlay" id="optimizeOverlay" style="display:none;">
+  <div class="login-card">
+    <h3 style="margin-bottom:1rem;">数据库优化</h3>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+        <input type="checkbox" id="optAggregate" style="width:auto;">
+        优化数据粒度（聚合 24 小时前的历史数据）
+      </label>
+    </div>
+    <div class="form-group">
+      <label>删除 x 天前数据（0 = 不删除）</label>
+      <input type="number" id="optDeleteDays" value="0" min="0" max="365" style="max-width:120px;">
+    </div>
+    <div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.75rem;">优化前会自动备份到 backup/ 目录</div>
+    <div style="display:flex;gap:0.5rem;">
+      <button class="btn btn-primary" onclick="executeOptimize()">开始优化</button>
+      <button class="btn btn-outline" onclick="hideOptimizeDialog()">取消</button>
     </div>
   </div>
 </div>

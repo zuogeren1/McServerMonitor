@@ -240,6 +240,78 @@ def cleanup_old_history():
     db.close()
 
 
+def _aggregate_history(db, start, end, bucket_sec, server_id=None):
+    """将指定时间范围内的历史数据聚合到 bucket_sec 粒度"""
+    sid_filter = 'AND server_id=?' if server_id else ''
+    params = (bucket_sec, bucket_sec, start, end) + ((server_id,) if server_id else ())
+    # 先删旧的聚合行
+    db.execute(f"DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list = '[]' {sid_filter}",
+               (start, end) + ((server_id,) if server_id else ()))
+    # 聚合所有行（含已有的聚合行，但已删）
+    db.execute(f'''
+        INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency)
+        SELECT server_id,
+               ROUND(timestamp / ?) * ? as bucket,
+               MAX(online), ROUND(AVG(player_count)), '[]', ROUND(AVG(latency), 1)
+        FROM history
+        WHERE timestamp >= ? AND timestamp < ? {sid_filter}
+        GROUP BY server_id, bucket
+    ''', params)
+    # 删原始行（player_list 非空）
+    db.execute(f"DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list != '[]' {sid_filter}",
+               (start, end) + ((server_id,) if server_id else ()))
+
+
+def optimize_database(aggregate=False, delete_days=0) -> str:
+    """优化数据库，返回备份路径。aggregate=True 时聚合旧数据粒度，delete_days>0 时删除指定天数前数据"""
+    import gzip
+    import shutil
+    import datetime
+    from pathlib import Path
+
+    # 备份目录
+    backup_dir = Path(DB_PATH).parent / 'backup'
+    backup_dir.mkdir(exist_ok=True)
+    date_str = datetime.date.today().strftime('%Y%m%d')
+    backup_name = f'monitor.db.bak.{date_str}'
+    backup_path = str(backup_dir / backup_name)
+
+    # 压缩备份
+    with open(DB_PATH, 'rb') as src, gzip.open(backup_path + '.gz', 'wb') as dst:
+        shutil.copyfileobj(src, dst)
+
+    db = sqlite3.connect(DB_PATH)
+    db.execute('PRAGMA foreign_keys = ON')
+    now = time.time()
+
+    # 删除指定天数前数据
+    if delete_days > 0:
+        cutoff = now - delete_days * 24 * 3600
+        db.execute("DELETE FROM history WHERE timestamp < ?", (cutoff,))
+
+    # 聚合旧数据粒度
+    if aggregate:
+        # 聚合 7-35 天 → 30 分钟粒度
+        _aggregate_history(db, now - 35 * 24 * 3600, now - 7 * 24 * 3600, 1800)
+        # 聚合 24h-7d → 5 分钟粒度
+        _aggregate_history(db, now - 7 * 24 * 3600, now - 24 * 3600, 300)
+
+    # 清理重复 session
+    db.execute('''
+        DELETE FROM player_sessions WHERE id IN (
+            SELECT s1.id FROM player_sessions s1
+            JOIN player_sessions s2 ON s1.player_name = s2.player_name
+                AND s1.id > s2.id
+                AND s1.login_time = s2.login_time
+        )
+    ''')
+
+    db.commit()
+    db.execute("VACUUM")
+    db.close()
+    return backup_path + '.gz'
+
+
 def get_history(server_id: int, range_str: str = None, start: float = None, end: float = None):
     now = time.time()
     if range_str and range_str in RANGE_SECONDS:

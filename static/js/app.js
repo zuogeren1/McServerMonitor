@@ -259,6 +259,7 @@ function loadDetailPage(sid) {
   const s = currentStatuses.find(x => x.server_id === sid);
   if (!s) return;
 
+  updatePlayerNotifBtn(sid);
   document.getElementById('detailTitle').textContent = s.server_name;
   document.getElementById('detailAddr').textContent = fmtAddr(s.active_host, s.active_port);
   const tag = document.getElementById('detailStatusTag');
@@ -564,14 +565,136 @@ document.getElementById('playerSearch').addEventListener('input', (e) => {
   _renderPlayerManageList(e.target.value);
 });
 
+// ---- Notifications ----
+let serverNotifEnabled = localStorage.getItem('serverNotif') === 'true';
+let playerNotifServers = JSON.parse(localStorage.getItem('playerNotifServers') || '{}');  // { server_id: true }
+let prevStatuses = [];
+
+function _ensureNotifPermission(cb) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().then(p => { if (p === 'granted' && cb) cb(); });
+  } else if (Notification.permission === 'granted' && cb) {
+    cb();
+  }
+}
+
+function toggleServerNotif() {
+  if (serverNotifEnabled) {
+    serverNotifEnabled = false;
+    localStorage.setItem('serverNotif', 'false');
+  } else {
+    _ensureNotifPermission(() => { serverNotifEnabled = true; localStorage.setItem('serverNotif', 'true'); updateServerNotifBtn(); });
+  }
+  updateServerNotifBtn();
+}
+
+function updateServerNotifBtn() {
+  const btn = document.getElementById('notifToggle');
+  if (btn) {
+    btn.textContent = serverNotifEnabled ? '通知: 开' : '通知: 关';
+    btn.className = 'btn btn-sm ' + (serverNotifEnabled ? 'btn-primary' : 'btn-outline');
+  }
+}
+
+function togglePlayerNotif(sid) {
+  if (playerNotifServers[sid]) {
+    delete playerNotifServers[sid];
+  } else {
+    _ensureNotifPermission(() => {
+      playerNotifServers[sid] = true;
+      localStorage.setItem('playerNotifServers', JSON.stringify(playerNotifServers));
+      updatePlayerNotifBtn(sid);
+    });
+  }
+  localStorage.setItem('playerNotifServers', JSON.stringify(playerNotifServers));
+  updatePlayerNotifBtn(sid);
+}
+
+function updatePlayerNotifBtn(sid) {
+  const btn = document.getElementById('playerNotifBtn');
+  if (btn) {
+    const on = !!playerNotifServers[sid];
+    btn.textContent = on ? '玩家通知: 开' : '玩家通知: 关';
+    btn.className = 'btn btn-sm ' + (on ? 'btn-primary' : 'btn-outline');
+  }
+}
+
+function _notify(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body }); } catch(e) {}
+}
+
+function checkNotifications(newData) {
+  if (prevStatuses.length === 0) return;
+  for (const s of newData) {
+    const prev = prevStatuses.find(x => x.server_id === s.server_id);
+    if (!prev) continue;
+
+    // 服务器上下线通知（全局开关控制）
+    if (serverNotifEnabled) {
+      if (s.online && !prev.online) _notify(s.server_name, '服务器已上线');
+      if (!s.online && prev.online) _notify(s.server_name, '服务器已离线');
+    }
+
+    // 玩家加入/离开通知（按服务器开关控制，仅采样完整时生效）
+    if (playerNotifServers[s.server_id] && s.online && prev.online && s.players.online <= 12) {
+      const prevNames = new Set((prev.players.list || []).map(p => p.name));
+      const currNames = new Set((s.players.list || []).map(p => p.name));
+      for (const n of currNames) { if (!prevNames.has(n) && !n.includes(' ')) _notify(s.server_name, `${n} 加入了`); }
+      for (const n of prevNames) { if (!currNames.has(n) && !n.includes(' ')) _notify(s.server_name, `${n} 离开了`); }
+    }
+  }
+}
+
 // ---- WebSocket ----
 socket.on('status_update', (data) => {
+  checkNotifications(data);
+  prevStatuses = data;
   currentStatuses = data;
   renderAll();
   if (currentPage === 'detail' && detailServerId) loadDetailPage(detailServerId);
   if (currentPage === 'players') loadPlayerList();
   if (currentPage === 'player-detail' && playerDetailName) loadPlayerDetail(playerDetailName);
 });
+
+// ---- DB Optimize ----
+function showOptimizeDialog() {
+  const overlay = document.getElementById('optimizeOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('optAggregate').checked = false;
+  document.getElementById('optDeleteDays').value = '0';
+}
+
+function hideOptimizeDialog() {
+  document.getElementById('optimizeOverlay').style.display = 'none';
+}
+
+async function executeOptimize() {
+  hideOptimizeDialog();
+  const btn = document.getElementById('optimizeDbBtn');
+  const status = document.getElementById('optimizeStatus');
+  btn.disabled = true;
+  status.textContent = '优化中...';
+  try {
+    const aggregate = document.getElementById('optAggregate').checked;
+    const deleteDays = parseInt(document.getElementById('optDeleteDays').value) || 0;
+    const resp = await fetch('/api/admin/optimize', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({aggregate, delete_days: deleteDays}),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      const fname = data.backup.replace(/\\/g, '/').split('/').pop();
+      status.textContent = `完成! 备份: ${fname}, 当前体积: ${data.size_mb} MB`;
+    } else {
+      status.textContent = '失败: ' + (data.error || '未知错误');
+    }
+  } catch(e) {
+    status.textContent = '请求失败';
+  }
+  btn.disabled = false;
+}
 
 // ---- Helpers ----
 function fmtAddr(host, port) {
@@ -598,3 +721,4 @@ fetch('/api/config').then(r => r.json()).then(c => {
   document.getElementById('intervalInput').value = c.check_interval;
   _requireLoginEnabled = c.require_login || false;
 });
+updateServerNotifBtn();

@@ -14,7 +14,7 @@ from db import (
     init_db, get_all_servers, add_server, delete_server, update_server,
     save_history, cleanup_old_history, get_history,
     parse_address, track_players, get_players, get_player_detail, delete_player,
-    get_player_list_at_time,
+    get_player_list_at_time, optimize_database,
 )
 from mc_query import query_one_server
 
@@ -230,6 +230,23 @@ def api_admin_config():
             _config['password'] = data['password']
             save_config(_config)
     return jsonify({'check_interval': check_interval})
+
+
+@app.route('/api/admin/optimize', methods=['POST'])
+def api_optimize():
+    if _config.get('require_login', False) and not session.get('logged_in'):
+        return jsonify({'error': 'unauthorized'}), 401
+    try:
+        data = request.get_json() or {}
+        backup = optimize_database(
+            aggregate=data.get('aggregate', False),
+            delete_days=int(data.get('delete_days', 0)),
+        )
+        import os as _os
+        size_mb = _os.path.getsize('monitor.db') / 1024 / 1024
+        return jsonify({'ok': True, 'backup': backup, 'size_mb': round(size_mb, 1)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/players')
