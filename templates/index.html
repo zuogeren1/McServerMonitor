@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MC Server Monitor</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23333'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-size='40'%3E%E2%A0%AE%3C/text%3E%3C/svg%3E">
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23333'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-size='40'%3E%E2%A0%AE%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -354,6 +354,7 @@
   </div>
 </div>
 
+<canvas id="faviconCanvas" width="64" height="64" style="display:none;"></canvas>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>

@@ -669,10 +669,74 @@ socket.on('status_update', (data) => {
   prevStatuses = data;
   currentStatuses = data;
   renderAll();
+  updateFavicon(data);
   if (currentPage === 'detail' && detailServerId) loadDetailPage(detailServerId);
   if (currentPage === 'players') loadPlayerList();
   if (currentPage === 'player-detail' && playerDetailName) loadPlayerDetail(playerDetailName);
 });
+
+// ---- Favicon Badge ----
+function updateFavicon(statuses) {
+  const canvas = document.getElementById('faviconCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const size = 64;
+  ctx.clearRect(0, 0, size, size);
+
+  // 背景方块
+  const r = 10;
+  ctx.beginPath();
+  ctx.moveTo(r, 0); ctx.lineTo(size - r, 0); ctx.arcTo(size, 0, size, r, r);
+  ctx.lineTo(size, size - r); ctx.arcTo(size, size, size - r, size, r);
+  ctx.lineTo(r, size); ctx.arcTo(0, size, 0, size - r, r);
+  ctx.lineTo(0, r); ctx.arcTo(0, 0, r, 0, r);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fill();
+
+  // MC 方块简单图案
+  ctx.fillStyle = '#6366f1';
+  ctx.fillRect(16, 10, 32, 6);
+  ctx.fillRect(16, 36, 32, 6);
+  ctx.fillRect(16, 16, 6, 20);
+  ctx.fillRect(42, 16, 6, 20);
+
+  // 角标
+  const total = statuses.length;
+  const online = statuses.filter(s => s.online).length;
+  const cx = 48, cy = 14, cr = 13;
+  ctx.beginPath();
+  ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+  if (total === 0) {
+    ctx.fillStyle = '#555';
+  } else if (online === total) {
+    ctx.fillStyle = '#22c55e';
+  } else if (online > 0) {
+    ctx.fillStyle = '#f59e0b';
+  } else {
+    ctx.fillStyle = '#ef4444';
+  }
+  ctx.fill();
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 角标文字
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (total === 0) {
+    ctx.fillText('0', cx, cy);
+  } else if (online === total) {
+    ctx.fillText(total, cx, cy);
+  } else {
+    ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(online, cx - 4, cy);
+    ctx.fillText('/' + total, cx + 6, cy);
+  }
+
+  document.getElementById('favicon').href = canvas.toDataURL();
+}
 
 // ---- DB Optimize ----
 function showOptimizeDialog() {
