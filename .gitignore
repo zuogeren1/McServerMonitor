@@ -25,6 +25,7 @@ Thumbs.db
 
 # Claude Code internal config
 .claude/
+CLAUDE.md
 
 #powershell
 start.ps1
