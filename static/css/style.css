@@ -217,7 +217,7 @@ body {
 .panel .info-row .lbl { color: var(--muted); }
 .panel .info-row .val { font-weight: 500; }
 
-.player-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem; }
+.player-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem; max-height: 240px; overflow-y: auto; }
 .player-chip {
   display: flex; align-items: center; gap: 0.4rem;
   background: var(--hover); padding: 0.3rem 0.6rem;

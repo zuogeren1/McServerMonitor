@@ -295,6 +295,17 @@ function loadDetailPage(sid) {
         </div>
       `);
     }
+    // 服务端随机报告最多 12 位玩家，超出时提示还有多少人
+    const totalOnline = s.players.online;
+    const sampleTotal = playerList.length;
+    const hiddenCount = totalOnline - sampleTotal;
+    if (hiddenCount > 0) {
+      chips.push(`
+        <span class="player-chip" style="opacity:0.5;cursor:default;background:transparent;border:1px dashed var(--border);">
+          还有 ${hiddenCount} 位玩家
+        </span>
+      `);
+    }
     _setHtmlSafe(plEl, chips.join(''));
   }
 
