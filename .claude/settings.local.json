@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(\"f:/Workspaces/McServerMonitor/.venv/Scripts/python\" \"f:/Workspaces/McServerMonitor/app.py\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:9000/)",
-      "Bash(taskkill -F -IM python.exe)"
-    ]
-  }
-}
