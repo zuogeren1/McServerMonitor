@@ -167,6 +167,10 @@ function renderHome() {
           <div class="info-label">版本</div>
           <div class="info-val">${s.version || '--'}</div>
         </div>
+        <div class="info-item">
+          <div class="info-label">玩家</div>
+          <div class="info-val">${s.players.online} / ${s.players.max}</div>
+        </div>
       </div>
     </div>
   `).join('');
