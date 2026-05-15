@@ -7,7 +7,19 @@ import urllib.request
 import urllib.error
 from flask import g
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'monitor.db')
+_db_path = None
+
+
+def _get_db_path():
+    if _db_path:
+        return _db_path
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'monitor.db')
+
+
+def _set_db_path(path):
+    global _db_path
+    if path and path != 'monitor.db':
+        _db_path = path if os.path.isabs(path) else os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
 
 RANGE_SECONDS = {
     '15m': 15 * 60, '1h': 3600, '6h': 6 * 3600,
@@ -37,7 +49,7 @@ def parse_address(addr_str: str) -> tuple[str, int | None]:
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DB_PATH)
+        db = g._database = sqlite3.connect(_get_db_path())
         db.row_factory = sqlite3.Row
     return db
 
@@ -104,8 +116,10 @@ def _migrate_players(db):
     db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_player ON player_sessions(player_name, login_time)")
 
 
-def init_db():
-    db = sqlite3.connect(DB_PATH)
+def init_db(db_path=None):
+    if db_path:
+        _set_db_path(db_path)
+    db = sqlite3.connect(_get_db_path())
     db.execute('''CREATE TABLE IF NOT EXISTS servers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL, primary_host TEXT NOT NULL DEFAULT '127.0.0.1',
@@ -164,7 +178,7 @@ check_interval = 5  # 由 init_db 更新
 
 
 def get_all_servers():
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.row_factory = sqlite3.Row
     servers = db.execute("SELECT * FROM servers ORDER BY id").fetchall()
     result = []
@@ -181,7 +195,7 @@ def get_all_servers():
 
 
 def add_server(name, primary_host, primary_port, backups, server_type='java'):
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute('PRAGMA foreign_keys = ON')
     cur = db.execute("INSERT INTO servers (name, primary_host, primary_port, server_type) VALUES (?, ?, ?, ?)", (name, primary_host, primary_port, server_type))
     sid = cur.lastrowid
@@ -193,7 +207,7 @@ def add_server(name, primary_host, primary_port, backups, server_type='java'):
 
 
 def delete_server(server_id):
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute('PRAGMA foreign_keys = ON')
     db.execute("DELETE FROM history WHERE server_id=?", (server_id,))
     db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
@@ -203,7 +217,7 @@ def delete_server(server_id):
 
 
 def update_server(server_id, name, primary_host, primary_port, backups, server_type='java'):
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute('PRAGMA foreign_keys = ON')
     db.execute("UPDATE servers SET name=?, primary_host=?, primary_port=?, server_type=? WHERE id=?", (name, primary_host, primary_port, server_type, server_id))
     db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
@@ -216,7 +230,7 @@ def update_server(server_id, name, primary_host, primary_port, backups, server_t
 def set_check_interval(seconds):
     global check_interval
     check_interval = seconds
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('check_interval', ?)", (str(seconds),))
     db.commit()
     db.close()
@@ -228,7 +242,7 @@ def save_history(server_id: int, status: dict):
     names = [n for n in raw_names if ' ' not in n]
     if anon_count > 0:
         names.append(f"{_ANON_NAME} x{anon_count}")
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute(
         "INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency) VALUES (?, ?, ?, ?, ?, ?)",
         (server_id, time.time(), 1 if status['online'] else 0, status['players']['online'],
@@ -239,7 +253,7 @@ def save_history(server_id: int, status: dict):
 
 def cleanup_old_history():
     cutoff = time.time() - 35 * 24 * 3600
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute("DELETE FROM history WHERE timestamp < ?", (cutoff,))
     db.commit()
     db.close()
@@ -275,17 +289,17 @@ def optimize_database(aggregate=False, delete_days=0) -> str:
     from pathlib import Path
 
     # 备份目录
-    backup_dir = Path(DB_PATH).parent / 'backup'
+    backup_dir = Path(_get_db_path()).parent / 'backup'
     backup_dir.mkdir(exist_ok=True)
     date_str = datetime.date.today().strftime('%Y%m%d')
     backup_name = f'monitor.db.bak.{date_str}'
     backup_path = str(backup_dir / backup_name)
 
     # 压缩备份
-    with open(DB_PATH, 'rb') as src, gzip.open(backup_path + '.gz', 'wb') as dst:
+    with open(_get_db_path(), 'rb') as src, gzip.open(backup_path + '.gz', 'wb') as dst:
         shutil.copyfileobj(src, dst)
 
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute('PRAGMA foreign_keys = ON')
     now = time.time()
 
@@ -330,7 +344,7 @@ def get_history(server_id: int, range_str: str = None, start: float = None, end:
 
     duration = end - start
     estimated_points = max(duration / max(check_interval, 1), 1)
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.row_factory = sqlite3.Row
 
     if estimated_points <= 3000:
@@ -413,7 +427,7 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
     global _active_players
     now = time.time()
     current_keys = set()
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.row_factory = sqlite3.Row
 
     anon_count = 0
@@ -482,7 +496,7 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
         if name not in current_keys:
             info['miss_count'] += 1
             if info['miss_count'] >= _MISS_THRESHOLD:
-                edb = sqlite3.connect(DB_PATH)
+                edb = sqlite3.connect(_get_db_path())
                 extra = 0
                 if info.get('anon_count'):
                     elapsed = now - info.get('last_accum_time', info['login_time'])
@@ -502,7 +516,7 @@ def _enrich_player_uuid(p: dict) -> dict:
     # 尝试从 API 获取
     fetched = _fetch_player_uuid(p['name'])
     if fetched:
-        db = sqlite3.connect(DB_PATH)
+        db = sqlite3.connect(_get_db_path())
         db.execute("UPDATE players SET uuid=? WHERE name=?", (fetched, p['name']))
         db.commit()
         db.close()
@@ -511,7 +525,7 @@ def _enrich_player_uuid(p: dict) -> dict:
 
 
 def get_players(filter_online: str | None = None, sort_by: str = 'name'):
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.row_factory = sqlite3.Row
     query = "SELECT * FROM players"
     params = []
@@ -545,7 +559,7 @@ def get_players(filter_online: str | None = None, sort_by: str = 'name'):
 
 
 def get_player_list_at_time(server_id: int, timestamp: float):
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.row_factory = sqlite3.Row
     row = db.execute(
         "SELECT player_list FROM history WHERE server_id=? ORDER BY ABS(timestamp - ?) LIMIT 1",
@@ -556,7 +570,7 @@ def get_player_list_at_time(server_id: int, timestamp: float):
 
 def delete_player(name: str):
     global _active_players
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.execute('PRAGMA foreign_keys = ON')
     db.execute("DELETE FROM player_sessions WHERE player_name=?", (name,))
     db.execute("DELETE FROM players WHERE name=?", (name,))
@@ -567,7 +581,7 @@ def delete_player(name: str):
 
 
 def get_player_detail(name: str):
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(_get_db_path())
     db.row_factory = sqlite3.Row
     player = db.execute("SELECT * FROM players WHERE name=? COLLATE NOCASE", (name,)).fetchone()
     if not player:

@@ -39,6 +39,9 @@ def load_config():
         'password': secrets.token_hex(6),
         'check_interval': 5,
         'require_login': True,
+        'host': '0.0.0.0',
+        'port': 9000,
+        'db_path': 'monitor.db',
     }
     with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
@@ -118,6 +121,9 @@ def api_config():
         'need_login': _config.get('require_login', False) and not session.get('logged_in'),
         'username': _config['username'],
         'require_login': _config.get('require_login', False),
+        'host': _config.get('host', '0.0.0.0'),
+        'port': _config.get('port', 9000),
+        'db_path': _config.get('db_path', 'monitor.db'),
     })
 
 
@@ -223,12 +229,17 @@ def api_admin_config():
     if 'check_interval' in data:
         _config['check_interval'] = int(data['check_interval'])
         check_interval = _config['check_interval']
-        save_config(_config)
     if 'username' in data and 'password' in data:
         if data['password']:
             _config['username'] = data['username']
             _config['password'] = data['password']
-            save_config(_config)
+    if 'host' in data:
+        _config['host'] = data['host']
+    if 'port' in data:
+        _config['port'] = int(data['port'])
+    if 'db_path' in data:
+        _config['db_path'] = data['db_path']
+    save_config(_config)
     return jsonify({'check_interval': check_interval})
 
 
@@ -278,7 +289,7 @@ def on_refresh():
 
 
 if __name__ == '__main__':
-    ci = init_db()
+    ci = init_db(_config.get('db_path'))
     _config['check_interval'] = ci
     import db
     db.check_interval = ci
@@ -289,4 +300,4 @@ if __name__ == '__main__':
         save_history(s['id'], status)
         track_players(s['id'], status['server_name'], status['players']['list'])
     threading.Thread(target=poll_loop, daemon=True).start()
-    socketio.run(app, host='0.0.0.0', port=9000, debug=False)
+    socketio.run(app, host=_config.get('host', '0.0.0.0'), port=_config.get('port', 9000), debug=False)

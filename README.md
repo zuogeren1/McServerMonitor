@@ -77,6 +77,9 @@ python app.py                   # http://localhost:9000
 | `password` | string | 管理页登录密码 |
 | `check_interval` | int | 服务器检测间隔（秒） |
 | `require_login` | bool | 是否启用登录保护，`false` 时管理页无需登录 |
+| `host` | string | 监听地址，默认 `0.0.0.0` |
+| `port` | int | 监听端口，默认 `9000` |
+| `db_path` | string | 数据库文件路径，默认 `monitor.db` |
 
 ## 数据流
 

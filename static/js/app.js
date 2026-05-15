@@ -484,6 +484,9 @@ function renderAdmin() {
     document.getElementById('intervalInput').value = c.check_interval;
     document.getElementById('authUsername').value = c.username || '';
     document.getElementById('authPassword').value = '';
+    document.getElementById('srvHost').value = c.host || '0.0.0.0';
+    document.getElementById('srvPort').value = c.port || 9000;
+    document.getElementById('dbPath').value = c.db_path || 'monitor.db';
   });
   fetch('/api/servers').then(r => r.json()).then(servers => {
     const list = document.getElementById('adminServerList');
@@ -516,12 +519,15 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   const check_interval = parseInt(document.getElementById('intervalInput').value) || 5;
   const username = document.getElementById('authUsername').value.trim();
   const password = document.getElementById('authPassword').value;
+  const host = document.getElementById('srvHost').value.trim() || '0.0.0.0';
+  const port = parseInt(document.getElementById('srvPort').value) || 9000;
+  const db_path = document.getElementById('dbPath').value.trim() || 'monitor.db';
   fetch('/api/admin/config', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({check_interval, username, password}),
+    body: JSON.stringify({check_interval, username, password, host, port, db_path}),
   }).then(() => {
     document.getElementById('authPassword').value = '';
-    alert('设置已保存');
+    alert('设置已保存。监听地址/端口/数据库路径需重启后生效');
   });
 });
 
@@ -803,6 +809,9 @@ function esc(str) {
 // Initial config load
 fetch('/api/config').then(r => r.json()).then(c => {
   document.getElementById('intervalInput').value = c.check_interval;
+  document.getElementById('srvHost').value = c.host || '0.0.0.0';
+  document.getElementById('srvPort').value = c.port || 9000;
+  document.getElementById('dbPath').value = c.db_path || 'monitor.db';
   _requireLoginEnabled = c.require_login || false;
 });
 updateServerNotifBtn();
