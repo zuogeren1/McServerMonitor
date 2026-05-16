@@ -487,6 +487,8 @@ function renderAdmin() {
     document.getElementById('srvHost').value = c.host || '0.0.0.0';
     document.getElementById('srvPort').value = c.port || 9000;
     document.getElementById('dbPath').value = c.db_path || 'monitor.db';
+    document.getElementById('offlineThreshold').value = c.offline_threshold || 2;
+    _offlineThreshold = c.offline_threshold || 2;
   });
   fetch('/api/servers').then(r => r.json()).then(servers => {
     const list = document.getElementById('adminServerList');
@@ -522,9 +524,11 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   const host = document.getElementById('srvHost').value.trim() || '0.0.0.0';
   const port = parseInt(document.getElementById('srvPort').value) || 9000;
   const db_path = document.getElementById('dbPath').value.trim() || 'monitor.db';
+  const offline_threshold = parseInt(document.getElementById('offlineThreshold').value) || 2;
+  _offlineThreshold = offline_threshold;
   fetch('/api/admin/config', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({check_interval, username, password, host, port, db_path}),
+    body: JSON.stringify({check_interval, username, password, host, port, db_path, offline_threshold}),
   }).then(() => {
     document.getElementById('authPassword').value = '';
     alert('设置已保存。监听地址/端口/数据库路径需重启后生效');
@@ -651,6 +655,9 @@ function _notify(title, body) {
   try { new Notification(title, { body }); } catch(e) {}
 }
 
+let _offlineCounts = {};       // server_id -> 连续离线次数
+let _offlineThreshold = 2;     // 由 config 更新
+
 function checkNotifications(newData) {
   if (prevStatuses.length === 0) return;
   for (const s of newData) {
@@ -659,8 +666,17 @@ function checkNotifications(newData) {
 
     // 服务器上下线通知（全局开关控制）
     if (serverNotifEnabled) {
-      if (s.online && !prev.online) _notify(s.server_name, '服务器已上线');
-      if (!s.online && prev.online) _notify(s.server_name, '服务器已离线');
+      if (s.online && !prev.online) {
+        _offlineCounts[s.server_id] = 0;
+        _notify(s.server_name, '服务器已上线');
+      }
+      if (!s.online) {
+        if (prev.online) _offlineCounts[s.server_id] = 1;
+        else _offlineCounts[s.server_id] = (_offlineCounts[s.server_id] || 0) + 1;
+        if (_offlineCounts[s.server_id] === _offlineThreshold) {
+          _notify(s.server_name, `服务器已离线（连续 ${_offlineThreshold} 次）`);
+        }
+      }
     }
 
     // 玩家加入/离开通知（按服务器开关控制，仅采样完整时生效）
@@ -812,6 +828,8 @@ fetch('/api/config').then(r => r.json()).then(c => {
   document.getElementById('srvHost').value = c.host || '0.0.0.0';
   document.getElementById('srvPort').value = c.port || 9000;
   document.getElementById('dbPath').value = c.db_path || 'monitor.db';
+  document.getElementById('offlineThreshold').value = c.offline_threshold || 2;
+  _offlineThreshold = c.offline_threshold || 2;
   _requireLoginEnabled = c.require_login || false;
 });
 updateServerNotifBtn();

@@ -42,6 +42,7 @@ def load_config():
         'host': '0.0.0.0',
         'port': 9000,
         'db_path': 'monitor.db',
+        'offline_threshold': 2,
     }
     with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
@@ -124,6 +125,7 @@ def api_config():
         'host': _config.get('host', '0.0.0.0'),
         'port': _config.get('port', 9000),
         'db_path': _config.get('db_path', 'monitor.db'),
+        'offline_threshold': _config.get('offline_threshold', 2),
     })
 
 
@@ -239,6 +241,8 @@ def api_admin_config():
         _config['port'] = int(data['port'])
     if 'db_path' in data:
         _config['db_path'] = data['db_path']
+    if 'offline_threshold' in data:
+        _config['offline_threshold'] = int(data['offline_threshold'])
     save_config(_config)
     return jsonify({'check_interval': check_interval})
 

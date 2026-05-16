@@ -80,6 +80,7 @@ python app.py                   # http://localhost:9000
 | `host` | string | 监听地址，默认 `0.0.0.0` |
 | `port` | int | 监听端口，默认 `9000` |
 | `db_path` | string | 数据库文件路径，默认 `monitor.db` |
+| `offline_threshold` | int | 连续离线 N 次后才发送下线通知，默认 `2` |
 
 ## 数据流
 
