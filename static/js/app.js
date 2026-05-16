@@ -656,6 +656,7 @@ function _notify(title, body) {
 }
 
 let _offlineCounts = {};       // server_id -> 连续离线次数
+let _offlineNotified = {};     // server_id -> 是否已发过离线通知
 let _offlineThreshold = 2;     // 由 config 更新
 
 function checkNotifications(newData) {
@@ -668,12 +669,16 @@ function checkNotifications(newData) {
     if (serverNotifEnabled) {
       if (s.online && !prev.online) {
         _offlineCounts[s.server_id] = 0;
-        _notify(s.server_name, '服务器已上线');
+        if (_offlineNotified[s.server_id]) {
+          _offlineNotified[s.server_id] = false;
+          _notify(s.server_name, '服务器已上线');
+        }
       }
       if (!s.online) {
         if (prev.online) _offlineCounts[s.server_id] = 1;
         else _offlineCounts[s.server_id] = (_offlineCounts[s.server_id] || 0) + 1;
         if (_offlineCounts[s.server_id] === _offlineThreshold) {
+          _offlineNotified[s.server_id] = true;
           _notify(s.server_name, `服务器已离线（连续 ${_offlineThreshold} 次）`);
         }
       }
