@@ -352,12 +352,40 @@ async function showPinnedPlayers(point) {
   if (list.length === 0) {
     plEl.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">该时间点无玩家在线</span>';
   } else {
-    plEl.innerHTML = list.map(name => `
+    let anonCount = 0;
+    const normalNames = [];
+    for (const name of list) {
+      const match = name.match(/^Anonymous Player x(\d+)$/);
+      if (match) {
+        anonCount += parseInt(match[1]) || 0;
+      } else {
+        normalNames.push(name);
+      }
+    }
+    const chips = normalNames.map(name => `
       <div class="player-chip" onclick="onPlayerClick('${esc(name)}')" title="点击查看玩家详情">
         <img src="${avatarUrl(null, name)}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Crect width=%2220%22 height=%2220%22 fill=%22%23475569%22/%3E%3C/svg%3E'">
         <span>${esc(name)}</span>
       </div>
-    `).join('');
+    `);
+    if (anonCount > 0) {
+      chips.push(`
+        <div class="player-chip" onclick="onPlayerClick('Anonymous Player')" title="点击查看匿名玩家详情" style="opacity:0.7;">
+          <span>Anonymous Player x${anonCount}</span>
+        </div>
+      `);
+    }
+    const sampleTotal = normalNames.length + anonCount;
+    const totalOnline = point.player_count || 0;
+    const hiddenCount = totalOnline - sampleTotal;
+    if (hiddenCount > 0) {
+      chips.push(`
+        <span class="player-chip" style="opacity:0.5;cursor:default;background:transparent;border:1px dashed var(--border);">
+          还有 ${hiddenCount} 位玩家
+        </span>
+      `);
+    }
+    plEl.innerHTML = chips.join('');
   }
 }
 
