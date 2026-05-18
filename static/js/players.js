@@ -1,5 +1,11 @@
 let playerFilter = 'all';
 let playerSort = 'name';
+let playerSearchTerm = '';
+
+document.getElementById('playerSearchInput').addEventListener('input', (e) => {
+  playerSearchTerm = e.target.value.trim().toLowerCase();
+  loadPlayerList();
+});
 
 function renderPlayerRow(p) {
   const displayName = p.anon_count > 0 ? `${esc(p.name)} x${p.anon_count}` : esc(p.name);
@@ -26,16 +32,25 @@ async function loadPlayerList() {
   const resp = await fetch(url);
   const players = await resp.json();
 
-  const anonPlayers = players.filter(p => p.anonymous);
-  const normalPlayers = players.filter(p => !p.anonymous);
+  let anonPlayers = players.filter(p => p.anonymous);
+  let normalPlayers = players.filter(p => !p.anonymous);
 
-  // 匿名玩家区域（始终在上方，不受排序/筛选影响）
+  // 搜索过滤（不区分大小写）
+  if (playerSearchTerm) {
+    anonPlayers = anonPlayers.filter(p => p.name.toLowerCase().includes(playerSearchTerm));
+    normalPlayers = normalPlayers.filter(p => p.name.toLowerCase().includes(playerSearchTerm));
+  }
+
+  // 匿名玩家区域
   const anonSection = document.getElementById('anonymousSection');
   const anonList = document.getElementById('anonymousPlayerList');
-  anonSection.style.display = 'block';
-  anonList.innerHTML = anonPlayers.length > 0
-    ? anonPlayers.map(renderPlayerRow).join('')
-    : '<div style="color:var(--muted);font-size:0.8rem;">暂无匿名玩家</div>';
+  if (anonPlayers.length > 0) {
+    anonSection.style.display = 'block';
+    anonList.innerHTML = anonPlayers.map(renderPlayerRow).join('');
+  } else {
+    anonSection.style.display = playerSearchTerm ? 'none' : 'block';
+    anonList.innerHTML = playerSearchTerm ? '' : '<div style="color:var(--muted);font-size:0.8rem;">暂无匿名玩家</div>';
+  }
 
   // 正常玩家区域
   const container = document.getElementById('playerListContainer');

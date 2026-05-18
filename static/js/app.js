@@ -696,8 +696,17 @@ function checkNotifications(newData) {
 
 // ---- WebSocket ----
 socket.on('status_update', (data) => {
+  const isFirstLoad = prevStatuses.length === 0;
   checkNotifications(data);
   prevStatuses = data;
+  if (isFirstLoad) {
+    for (const s of data) {
+      if (!s.online) {
+        _offlineCounts[s.server_id] = _offlineThreshold;
+        _offlineNotified[s.server_id] = true;
+      }
+    }
+  }
   currentStatuses = data;
   renderAll();
   updateFavicon(data);
