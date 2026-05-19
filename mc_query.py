@@ -98,7 +98,7 @@ def try_single_address(host: str, port: int | None, timeout: float = 2.0, server
         srv = JavaServer.lookup(addr, timeout=timeout)
         st = srv.status()
         players = st.players
-        sample = players.sample or []
+        sample = sorted((players.sample or []), key=lambda p: p.name.lower())
         return {
             'online': True,
             'host': host, 'port': port,

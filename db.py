@@ -354,9 +354,10 @@ def get_history(server_id: int, range_str: str = None, start: float = None, end:
             (server_id, start, end)).fetchall()
         result = []
         for r in rows:
+            pl = json.loads(r['player_list']) if r['player_list'] else []
             result.append({'timestamp': r['timestamp'], 'online': bool(r['online']),
                            'player_count': r['player_count'],
-                           'player_list': json.loads(r['player_list']) if r['player_list'] else [],
+                           'player_list': sorted(pl, key=lambda n: n.lower()),
                            'latency': r['latency']})
     else:
         bucket_seconds = max(int(duration / 2000), 1)
@@ -565,7 +566,8 @@ def get_player_list_at_time(server_id: int, timestamp: float):
         "SELECT player_list FROM history WHERE server_id=? ORDER BY ABS(timestamp - ?) LIMIT 1",
         (server_id, timestamp)).fetchone()
     db.close()
-    return json.loads(row['player_list']) if row and row['player_list'] else []
+    pl = json.loads(row['player_list']) if row and row['player_list'] else []
+    return sorted(pl, key=lambda n: n.lower())
 
 
 def delete_player(name: str):
