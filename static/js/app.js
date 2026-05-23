@@ -171,6 +171,7 @@ function renderHome() {
           <div class="info-label">玩家</div>
           <div class="info-val">${s.players.online} / ${s.players.max}</div>
         </div>
+        ${(() => { const bkp = (s.backup_statuses || []).filter(b => b.type === 'backup'); if (bkp.length > 0) { const on = bkp.filter(b => b.online).length; return `<div class="info-item"><div class="info-label">副地址</div><div class="info-val" style="color:${on === bkp.length ? 'var(--online)' : on > 0 ? '#f59e0b' : 'var(--offline)'};">${on} / ${bkp.length}</div></div>`; } return ''; })()}
       </div>
     </div>
   `).join('');
@@ -205,6 +206,7 @@ function renderServers() {
           <div class="info-label">玩家</div>
           <div class="info-val">${s.players.online} / ${s.players.max}</div>
         </div>
+        ${(() => { const bkp = (s.backup_statuses || []).filter(b => b.type === 'backup'); if (bkp.length > 0) { const on = bkp.filter(b => b.online).length; return `<div class="info-item"><div class="info-label">副地址</div><div class="info-val" style="color:${on === bkp.length ? 'var(--online)' : on > 0 ? '#f59e0b' : 'var(--offline)'};">${on} / ${bkp.length}</div></div>`; } return ''; })()}
       </div>
       ${s.motd_html ? `<div style="font-size:0.8rem;margin-top:0.6rem;font-family:'Consolas','Courier New',monospace;white-space:pre-wrap;word-break:break-word;">${s.motd_html}</div>` : (s.motd ? `<div style="color:var(--muted);font-size:0.8rem;margin-top:0.6rem;font-family:'Consolas','Courier New',monospace;white-space:pre-wrap;word-break:break-word;">${esc(s.motd)}</div>` : '')}
     </div>
