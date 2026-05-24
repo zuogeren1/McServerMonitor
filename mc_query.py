@@ -1,3 +1,4 @@
+import eventlet
 from html import escape as html_escape
 from mcstatus import JavaServer, BedrockServer
 
@@ -121,11 +122,24 @@ def query_one_server(server_info: dict) -> dict:
     for b in server_info.get('backups', []):
         addresses.append((b['host'], b['port'], 'backup'))
 
-    active_status = None
-    backup_statuses = []
+    # 并行查询所有地址
+    results = []
+    pool = eventlet.GreenPool()
+
+    def _query_one_addr(host, port, addr_type):
+        result = try_single_address(host, port, server_type=server_type)
+        return (host, port, addr_type, result)
 
     for host, port, addr_type in addresses:
-        result = try_single_address(host, port, server_type=server_type)
+        results.append(pool.spawn(_query_one_addr, host, port, addr_type))
+    finished = [r.wait() for r in results]
+
+    # 收集结果：主地址优先作为 active_status
+    active_status = None
+    backup_statuses = []
+    primary_backup_pending = []
+
+    for host, port, addr_type, result in finished:
         if addr_type == 'primary':
             if result:
                 active_status = result

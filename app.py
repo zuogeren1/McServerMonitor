@@ -70,16 +70,23 @@ def login_required(f):
 
 
 # ---- Poll Loop ----
+def _query_single_server(server_info):
+    """查询单台服务器并写入数据库（供 GreenPool 并行调用）"""
+    status = query_one_server(server_info)
+    server_statuses[server_info['id']] = status
+    save_history(server_info['id'], status)
+    track_players(server_info['id'], status['server_name'], status['players']['list'])
+
+
 def query_all_servers():
     global server_statuses
     servers = get_all_servers()
     current_ids = set()
+    pool = eventlet.GreenPool()
     for s in servers:
-        status = query_one_server(s)
-        server_statuses[s['id']] = status
-        save_history(s['id'], status)
-        track_players(s['id'], status['server_name'], status['players']['list'])
         current_ids.add(s['id'])
+        pool.spawn(_query_single_server, s)
+    pool.waitall()
     for sid in list(server_statuses.keys()):
         if sid not in current_ids:
             del server_statuses[sid]
