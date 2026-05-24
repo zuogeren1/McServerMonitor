@@ -81,10 +81,9 @@ def _query_single_server(server_info):
 def query_all_servers():
     global server_statuses
     servers = get_all_servers()
-    current_ids = set()
+    current_ids = {s['id'] for s in servers}
     pool = eventlet.GreenPool()
     for s in servers:
-        current_ids.add(s['id'])
         pool.spawn(_query_single_server, s)
     pool.waitall()
     for sid in list(server_statuses.keys()):
@@ -96,12 +95,14 @@ def query_all_servers():
 def poll_loop():
     global _cleanup_counter
     while True:
+        t0 = time.time()
         query_all_servers()
         _cleanup_counter += 1
         if _cleanup_counter >= 100:
             cleanup_old_history()
             _cleanup_counter = 0
-        time.sleep(check_interval)
+        elapsed = time.time() - t0
+        time.sleep(max(0, check_interval - elapsed))
 
 
 # ---- Routes ----

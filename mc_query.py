@@ -75,7 +75,7 @@ def _convert_motd_line(text: str) -> str:
     return ''.join(result)
 
 
-def try_single_address(host: str, port: int | None, timeout: float = 2.0, server_type: str = 'java') -> dict | None:
+def try_single_address(host: str, port: int | None, timeout: float = 1.0, server_type: str = 'java') -> dict | None:
     try:
         addr = host if port is None else f'{host}:{port}'
         if server_type == 'bedrock':
@@ -123,16 +123,13 @@ def query_one_server(server_info: dict) -> dict:
         addresses.append((b['host'], b['port'], 'backup'))
 
     # 并行查询所有地址
-    results = []
+    finished = []
     pool = eventlet.GreenPool()
-
-    def _query_one_addr(host, port, addr_type):
-        result = try_single_address(host, port, server_type=server_type)
-        return (host, port, addr_type, result)
-
+    def _query_one(host, port, addr_type):
+        return (host, port, addr_type, try_single_address(host, port, server_type=server_type))
     for host, port, addr_type in addresses:
-        results.append(pool.spawn(_query_one_addr, host, port, addr_type))
-    finished = [r.wait() for r in results]
+        finished.append(pool.spawn(_query_one, host, port, addr_type))
+    finished = [r.wait() for r in finished]
 
     # 收集结果：主地址优先作为 active_status
     active_status = None
