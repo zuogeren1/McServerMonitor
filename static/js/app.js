@@ -370,7 +370,7 @@ document.getElementById('saveServer').addEventListener('click', () => {
   fetch(url, {
     method, headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data)
-  }).then(r => r.json()).then(() => { resetForm(); renderAdmin(); });
+  }).then(r => r.json()).then(() => { resetForm(); renderAdmin(); }).catch(() => {});
 });
 
 document.getElementById('cancelEdit').addEventListener('click', resetForm);
@@ -417,12 +417,12 @@ function editServer(sid) {
       container.appendChild(div);
     });
     switchPage('admin');
-  });
+  }).catch(() => {});
 }
 
 function deleteServer(sid) {
   if (!confirm('确定删除此服务器?')) return;
-  fetch(`/api/servers/${sid}`, {method: 'DELETE'}).then(() => renderAdmin());
+  fetch(`/api/servers/${sid}`, {method: 'DELETE'}).then(() => renderAdmin()).catch(() => {});
 }
 
 // ---- Login Modal ----
@@ -494,7 +494,7 @@ function renderAdmin() {
         </div>
       </div>
     `).join('');
-  });
+  }).catch(() => {});
 }
 
 document.getElementById('saveSettings').addEventListener('click', () => {
@@ -527,7 +527,7 @@ function _renderPlayerManageList(filter) {
     fetch('/api/players').then(r => r.json()).then(players => {
       adminPlayerList = players;
       _doRenderPlayerManageList(filter);
-    });
+    }).catch(() => {});
   } else {
     _doRenderPlayerManageList(filter);
   }
@@ -564,7 +564,7 @@ function deleteAdminPlayer(name) {
   fetch(`/api/players/${encodeURIComponent(name)}`, {method: 'DELETE'}).then(() => {
     adminPlayerList = [];
     _renderPlayerManageList(document.getElementById('playerSearch').value);
-  });
+  }).catch(() => {});
 }
 
 document.getElementById('playerSearch').addEventListener('input', (e) => {
