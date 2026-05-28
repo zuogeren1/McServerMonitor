@@ -38,7 +38,6 @@ function toggleSidebar() {
     }
     return;
   }
-  // Desktop: collapse/expand
   sidebarOpen = !sidebarOpen;
   sidebar.classList.toggle('collapsed', !sidebarOpen);
   localStorage.setItem('sidebar', sidebarOpen ? 'open' : 'closed');
@@ -48,7 +47,6 @@ sidebarToggle.addEventListener('click', toggleSidebar);
 mobileMenuBtn.addEventListener('click', toggleSidebar);
 sidebarOverlay.addEventListener('click', closeMobileSidebar);
 
-// Close mobile sidebar on nav item click
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
     switchPage(item.dataset.page);
@@ -56,17 +54,14 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
-// Init desktop sidebar state (not on mobile)
 if (!isMobile() && localStorage.getItem('sidebar') === 'closed') {
   sidebarOpen = true;
   toggleSidebar();
 }
 
-// Reset sidebar state on window resize
 window.addEventListener('resize', () => {
   if (!isMobile()) {
     closeMobileSidebar();
-    // Restore desktop sidebar state
     if (localStorage.getItem('sidebar') === 'closed') {
       sidebar.classList.add('collapsed');
       sidebarOpen = false;
@@ -138,6 +133,34 @@ function renderAll() {
   else if (currentPage === 'player-manage') renderPlayerManage();
 }
 
+function _renderServerCard(s, showMotd) {
+  const bkp = (s.backup_statuses || []).filter(b => b.type === 'backup');
+  let backupHtml = '';
+  if (bkp.length > 0) {
+    const on = bkp.filter(b => b.online).length;
+    const color = on === bkp.length ? 'var(--online)' : on > 0 ? '#f59e0b' : 'var(--offline)';
+    backupHtml = `<div class="info-item"><div class="info-label">副地址</div><div class="info-val" style="color:${color};">${on} / ${bkp.length}</div></div>`;
+  }
+  return `
+    <div class="server-card" onclick="openDetail(${s.server_id})">
+      <div class="card-top">
+        <div>
+          <div class="card-name">${esc(s.server_name)} <span class="type-badge type-${s.server_type || 'java'}">${s.server_type === 'bedrock' ? '基岩' : 'Java'}</span></div>
+          <div class="card-addr">${fmtAddr(s.active_host, s.active_port)}</div>
+        </div>
+        <span class="status-tag ${s.online ? 'online' : 'offline'}">${s.online ? '在线' : '离线'}</span>
+      </div>
+      <div class="card-info">
+        <div class="info-item"><div class="info-label">延迟</div><div class="info-val">${s.latency != null ? s.latency + ' ms' : '--'}</div></div>
+        <div class="info-item"><div class="info-label">版本</div><div class="info-val">${s.version || '--'}</div></div>
+        <div class="info-item"><div class="info-label">玩家</div><div class="info-val">${s.players.online} / ${s.players.max}</div></div>
+        ${backupHtml}
+      </div>
+      ${showMotd ? (s.motd_html ? `<div style="font-size:0.8rem;margin-top:0.6rem;font-family:'Consolas','Courier New',monospace;white-space:pre-wrap;word-break:break-word;">${s.motd_html}</div>` : (s.motd ? `<div style="color:var(--muted);font-size:0.8rem;margin-top:0.6rem;font-family:'Consolas','Courier New',monospace;white-space:pre-wrap;word-break:break-word;">${esc(s.motd)}</div>` : '')) : ''}
+    </div>
+  `;
+}
+
 // ---- Home ----
 function renderHome() {
   const total = currentStatuses.length;
@@ -148,33 +171,7 @@ function renderHome() {
 
   const grid = document.getElementById('homeCards');
   if (total === 0) { grid.innerHTML = ''; return; }
-
-  grid.innerHTML = currentStatuses.map(s => `
-    <div class="server-card" onclick="openDetail(${s.server_id})">
-      <div class="card-top">
-        <div>
-          <div class="card-name">${esc(s.server_name)} <span class="type-badge type-${s.server_type || 'java'}">${s.server_type === 'bedrock' ? '基岩' : 'Java'}</span></div>
-          <div class="card-addr">${fmtAddr(s.active_host, s.active_port)}</div>
-        </div>
-        <span class="status-tag ${s.online ? 'online' : 'offline'}">${s.online ? '在线' : '离线'}</span>
-      </div>
-      <div class="card-info">
-        <div class="info-item">
-          <div class="info-label">延迟</div>
-          <div class="info-val">${s.latency != null ? s.latency + ' ms' : '--'}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">版本</div>
-          <div class="info-val">${s.version || '--'}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">玩家</div>
-          <div class="info-val">${s.players.online} / ${s.players.max}</div>
-        </div>
-        ${(() => { const bkp = (s.backup_statuses || []).filter(b => b.type === 'backup'); if (bkp.length > 0) { const on = bkp.filter(b => b.online).length; return `<div class="info-item"><div class="info-label">副地址</div><div class="info-val" style="color:${on === bkp.length ? 'var(--online)' : on > 0 ? '#f59e0b' : 'var(--offline)'};">${on} / ${bkp.length}</div></div>`; } return ''; })()}
-      </div>
-    </div>
-  `).join('');
+  grid.innerHTML = currentStatuses.map(s => _renderServerCard(s, false)).join('');
 }
 
 // ---- Servers ----
@@ -183,34 +180,7 @@ function renderServers() {
   document.getElementById('serversEmpty').style.display = total === 0 ? 'block' : 'none';
   const grid = document.getElementById('serverCards');
   if (total === 0) { grid.innerHTML = ''; return; }
-
-  grid.innerHTML = currentStatuses.map(s => `
-    <div class="server-card" onclick="openDetail(${s.server_id})">
-      <div class="card-top">
-        <div>
-          <div class="card-name">${esc(s.server_name)} <span class="type-badge type-${s.server_type || 'java'}">${s.server_type === 'bedrock' ? '基岩' : 'Java'}</span></div>
-          <div class="card-addr">${fmtAddr(s.active_host, s.active_port)}</div>
-        </div>
-        <span class="status-tag ${s.online ? 'online' : 'offline'}">${s.online ? '在线' : '离线'}</span>
-      </div>
-      <div class="card-info">
-        <div class="info-item">
-          <div class="info-label">延迟</div>
-          <div class="info-val">${s.latency != null ? s.latency + ' ms' : '--'}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">版本</div>
-          <div class="info-val">${s.version || '--'}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">玩家</div>
-          <div class="info-val">${s.players.online} / ${s.players.max}</div>
-        </div>
-        ${(() => { const bkp = (s.backup_statuses || []).filter(b => b.type === 'backup'); if (bkp.length > 0) { const on = bkp.filter(b => b.online).length; return `<div class="info-item"><div class="info-label">副地址</div><div class="info-val" style="color:${on === bkp.length ? 'var(--online)' : on > 0 ? '#f59e0b' : 'var(--offline)'};">${on} / ${bkp.length}</div></div>`; } return ''; })()}
-      </div>
-      ${s.motd_html ? `<div style="font-size:0.8rem;margin-top:0.6rem;font-family:'Consolas','Courier New',monospace;white-space:pre-wrap;word-break:break-word;">${s.motd_html}</div>` : (s.motd ? `<div style="color:var(--muted);font-size:0.8rem;margin-top:0.6rem;font-family:'Consolas','Courier New',monospace;white-space:pre-wrap;word-break:break-word;">${esc(s.motd)}</div>` : '')}
-    </div>
-  `).join('');
+  grid.innerHTML = currentStatuses.map(s => _renderServerCard(s, true)).join('');
 }
 
 // ---- Detail Page ----
@@ -291,7 +261,6 @@ function loadDetailPage(sid) {
   const playerList = s.players.list || [];
   const plEl = document.getElementById('dPlayerList');
   const plEmpty = document.getElementById('dPlayerEmpty');
-  // 合并匿名玩家
   const anonCount = playerList.filter(p => (p.name || '').includes(' ')).length;
   const normalPlayers = playerList.filter(p => !(p.name || '').includes(' '));
   if (normalPlayers.length === 0 && anonCount === 0) {
@@ -312,7 +281,6 @@ function loadDetailPage(sid) {
         </div>
       `);
     }
-    // 服务端随机报告最多 12 位玩家，超出时提示还有多少人
     const totalOnline = s.players.online;
     const sampleTotal = playerList.length;
     const hiddenCount = totalOnline - sampleTotal;
@@ -474,24 +442,27 @@ document.getElementById('loginCancel').addEventListener('click', () => {
   _pendingLoginPage = null;
 });
 
-// Enter key in password field submits login
 document.getElementById('loginPassword').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('loginSubmit').click();
 });
 
 // ---- Admin Settings ----
+function _loadConfigIntoForm(c) {
+  document.getElementById('intervalInput').value = c.check_interval;
+  const authUser = document.getElementById('authUsername');
+  if (authUser) authUser.value = c.username || '';
+  const authPwd = document.getElementById('authPassword');
+  if (authPwd) authPwd.value = '';
+  document.getElementById('srvHost').value = c.host || '0.0.0.0';
+  document.getElementById('srvPort').value = c.port || 9000;
+  document.getElementById('dbPath').value = c.db_path || 'monitor.db';
+  document.getElementById('offlineThreshold').value = c.offline_threshold || 2;
+  _offlineThreshold = c.offline_threshold || 2;
+  _requireLoginEnabled = c.require_login || false;
+}
+
 function renderAdmin() {
-  // Load config (username, check_interval)
-  fetch('/api/config').then(r => r.json()).then(c => {
-    document.getElementById('intervalInput').value = c.check_interval;
-    document.getElementById('authUsername').value = c.username || '';
-    document.getElementById('authPassword').value = '';
-    document.getElementById('srvHost').value = c.host || '0.0.0.0';
-    document.getElementById('srvPort').value = c.port || 9000;
-    document.getElementById('dbPath').value = c.db_path || 'monitor.db';
-    document.getElementById('offlineThreshold').value = c.offline_threshold || 2;
-    _offlineThreshold = c.offline_threshold || 2;
-  });
+  fetch('/api/config').then(r => r.json()).then(_loadConfigIntoForm);
   fetch('/api/servers').then(r => r.json()).then(servers => {
     const list = document.getElementById('adminServerList');
     if (servers.length === 0) {
@@ -537,10 +508,6 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   });
 });
 
-// Remove old saveInterval handler (replaced by saveSettings)
-const oldSaveInterval = document.getElementById('saveInterval');
-if (oldSaveInterval) oldSaveInterval.remove();
-
 // ---- Player Manage Page ----
 let adminPlayerList = [];
 
@@ -573,7 +540,7 @@ function _doRenderPlayerManageList(filter) {
   list.innerHTML = players.map(p => `
     <div class="item">
       <div class="info" style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;">
-        <img src="${avatarUrl(p.uuid, p.name)}" alt="" style="width:22px;height:22px;border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
+        <img src="${avatarUrl(null, p.name)}" alt="" style="width:22px;height:22px;border-radius:3px;flex-shrink:0;" onerror="this.style.display='none'">
         <strong style="flex-shrink:0;">${esc(p.name)}</strong>
         <small style="color:var(--muted);font-family:'Consolas','Courier New',monospace;font-size:0.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.uuid || '')}</small>
         <small style="color:var(--muted);font-size:0.75rem;">${formatDuration(p.total_online_seconds)}</small>
@@ -725,7 +692,6 @@ function updateFavicon(statuses) {
   const size = 64;
   ctx.clearRect(0, 0, size, size);
 
-  // 背景方块
   const r = 10;
   ctx.beginPath();
   ctx.moveTo(r, 0); ctx.lineTo(size - r, 0); ctx.arcTo(size, 0, size, r, r);
@@ -735,14 +701,12 @@ function updateFavicon(statuses) {
   ctx.fillStyle = '#1a1a2e';
   ctx.fill();
 
-  // MC 方块简单图案
   ctx.fillStyle = '#6366f1';
   ctx.fillRect(16, 10, 32, 6);
   ctx.fillRect(16, 36, 32, 6);
   ctx.fillRect(16, 16, 6, 20);
   ctx.fillRect(42, 16, 6, 20);
 
-  // 角标
   const total = statuses.length;
   const online = statuses.filter(s => s.online).length;
   const cx = 48, cy = 14, cr = 13;
@@ -762,7 +726,6 @@ function updateFavicon(statuses) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // 角标文字
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 16px "Segoe UI", system-ui, sans-serif';
   ctx.textAlign = 'center';
@@ -824,7 +787,6 @@ function fmtAddr(host, port) {
   return esc(host) + ':' + port;
 }
 function avatarUrl(uuid, name) {
-  // 优先用 UUID，名称含空格则为无效 Minecraft 用户名
   const id = uuid ? uuid.trim() : '';
   if (id) return `https://crafthead.net/avatar/${encodeURIComponent(id)}`;
   const cleanName = (name || '').trim();
@@ -838,14 +800,5 @@ function esc(str) {
   return div.innerHTML;
 }
 
-// Initial config load
-fetch('/api/config').then(r => r.json()).then(c => {
-  document.getElementById('intervalInput').value = c.check_interval;
-  document.getElementById('srvHost').value = c.host || '0.0.0.0';
-  document.getElementById('srvPort').value = c.port || 9000;
-  document.getElementById('dbPath').value = c.db_path || 'monitor.db';
-  document.getElementById('offlineThreshold').value = c.offline_threshold || 2;
-  _offlineThreshold = c.offline_threshold || 2;
-  _requireLoginEnabled = c.require_login || false;
-});
+fetch('/api/config').then(r => r.json()).then(_loadConfigIntoForm);
 updateServerNotifBtn();

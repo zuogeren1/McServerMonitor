@@ -152,6 +152,32 @@ def api_logout():
     return jsonify({'ok': True})
 
 
+# ---- Helpers ----
+
+def _parse_server_form(data):
+    backups = []
+    for b_str in data.get('backups', []):
+        h, p = parse_address(b_str)
+        backups.append({'host': h, 'port': p})
+    primary_addr = data.get('primary_address', '')
+    if primary_addr:
+        primary_host, primary_port = parse_address(primary_addr)
+    else:
+        primary_host = data.get('primary_host', '127.0.0.1')
+        primary_port = int(data.get('primary_port', 25565))
+    return data['name'], primary_host, primary_port, backups, data.get('server_type', 'java')
+
+
+def _refresh_server_status(sid):
+    servers = get_all_servers()
+    for info in servers:
+        if info['id'] == sid:
+            server_statuses[sid] = query_one_server(info)
+            save_history(sid, server_statuses[sid])
+            break
+    socketio.emit('status_update', list(server_statuses.values()))
+
+
 # ---- Admin (需登录) ----
 
 @app.route('/api/servers', methods=['GET', 'POST'])
@@ -159,26 +185,8 @@ def api_servers():
     if request.method == 'POST':
         if _config.get('require_login', False) and not session.get('logged_in'):
             return jsonify({'error': 'unauthorized'}), 401
-        data = request.get_json()
-        backups = []
-        for b_str in data.get('backups', []):
-            h, p = parse_address(b_str)
-            backups.append({'host': h, 'port': p})
-        primary_addr = data.get('primary_address', '')
-        if primary_addr:
-            primary_host, primary_port = parse_address(primary_addr)
-        else:
-            primary_host = data.get('primary_host', '127.0.0.1')
-            primary_port = int(data.get('primary_port', 25565))
-
-        sid = add_server(data['name'], primary_host, primary_port, backups, data.get('server_type', 'java'))
-        servers = get_all_servers()
-        for info in servers:
-            if info['id'] == sid:
-                server_statuses[sid] = query_one_server(info)
-                save_history(sid, server_statuses[sid])
-                break
-        socketio.emit('status_update', list(server_statuses.values()))
+        sid = add_server(*_parse_server_form(request.get_json()))
+        _refresh_server_status(sid)
         return jsonify({'id': sid}), 201
     return jsonify(get_all_servers())
 
@@ -193,26 +201,8 @@ def api_server_detail(sid):
         socketio.emit('status_update', list(server_statuses.values()))
         return jsonify({'ok': True})
 
-    data = request.get_json()
-    backups = []
-    for b_str in data.get('backups', []):
-        h, p = parse_address(b_str)
-        backups.append({'host': h, 'port': p})
-    primary_addr = data.get('primary_address', '')
-    if primary_addr:
-        primary_host, primary_port = parse_address(primary_addr)
-    else:
-        primary_host = data.get('primary_host', '127.0.0.1')
-        primary_port = int(data.get('primary_port', 25565))
-
-    update_server(sid, data['name'], primary_host, primary_port, backups, data.get('server_type', 'java'))
-    servers = get_all_servers()
-    for info in servers:
-        if info['id'] == sid:
-            server_statuses[sid] = query_one_server(info)
-            save_history(sid, server_statuses[sid])
-            break
-    socketio.emit('status_update', list(server_statuses.values()))
+    update_server(sid, *_parse_server_form(request.get_json()))
+    _refresh_server_status(sid)
     return jsonify({'ok': True})
 
 
@@ -265,8 +255,7 @@ def api_optimize():
             aggregate=data.get('aggregate', False),
             delete_days=int(data.get('delete_days', 0)),
         )
-        import os as _os
-        size_mb = _os.path.getsize('monitor.db') / 1024 / 1024
+        size_mb = os.path.getsize('monitor.db') / 1024 / 1024
         return jsonify({'ok': True, 'backup': backup, 'size_mb': round(size_mb, 1)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500

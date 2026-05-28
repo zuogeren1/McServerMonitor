@@ -122,7 +122,6 @@ def query_one_server(server_info: dict) -> dict:
     for b in server_info.get('backups', []):
         addresses.append((b['host'], b['port'], 'backup'))
 
-    # 并行查询所有地址
     finished = []
     pool = eventlet.GreenPool()
     def _query_one(host, port, addr_type):
@@ -131,7 +130,6 @@ def query_one_server(server_info: dict) -> dict:
         finished.append(pool.spawn(_query_one, host, port, addr_type))
     finished = [r.wait() for r in finished]
 
-    # 收集结果：主地址优先作为 active_status
     active_status = None
     backup_statuses = []
     primary_backup_pending = []

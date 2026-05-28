@@ -5,7 +5,6 @@ import sqlite3
 import os
 import urllib.request
 import urllib.error
-from flask import g
 
 _db_path = None
 
@@ -46,23 +45,14 @@ def parse_address(addr_str: str) -> tuple[str, int | None]:
     return addr_str, None
 
 
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(_get_db_path())
-        db.row_factory = sqlite3.Row
-    return db
-
-
 def _migrate_players(db):
     """将旧版 uuid-PK 表结构迁移为 name-PK 结构"""
     db.row_factory = sqlite3.Row
-    # 检查是否已是新结构
     cols = [r[1] for r in db.execute("PRAGMA table_info(players)").fetchall()]
     if 'name' in cols and 'uuid' in cols and cols[0] == 'name':
-        return  # 已是新结构
+        return
 
-    # 迁移 players: 同名合并，优先保留有真实 UUID 的行
+    # 同名合并，优先保留有真实 UUID 的行
     old_players = db.execute("SELECT uuid, name, first_seen, last_seen, total_online_seconds FROM players").fetchall()
     merged = {}
     for r in old_players:
@@ -82,7 +72,6 @@ def _migrate_players(db):
             cur['last_seen'] = max(cur['last_seen'], r['last_seen'])
             cur['total_online_seconds'] += r['total_online_seconds']
 
-    # 迁移 sessions: 通过旧 uuid 关联到 name
     old_sessions = db.execute("SELECT id, player_uuid, server_id, server_name, login_time, logout_time FROM player_sessions").fetchall()
     uuid_to_name = {r['uuid']: r['name'] for r in old_players}
 
@@ -151,7 +140,6 @@ def init_db(db_path=None):
     db.execute('CREATE INDEX IF NOT EXISTS idx_sessions_player ON player_sessions(player_name, login_time)')
     db.execute('PRAGMA foreign_keys = ON')
 
-    # 尝试从旧结构迁移
     _migrate_players(db)
 
     global check_interval
@@ -227,15 +215,6 @@ def update_server(server_id, name, primary_host, primary_port, backups, server_t
     db.close()
 
 
-def set_check_interval(seconds):
-    global check_interval
-    check_interval = seconds
-    db = sqlite3.connect(_get_db_path())
-    db.execute("INSERT OR REPLACE INTO config (key, value) VALUES ('check_interval', ?)", (str(seconds),))
-    db.commit()
-    db.close()
-
-
 def save_history(server_id: int, status: dict):
     raw_names = [p['name'] for p in status['players']['list']]
     anon_count = sum(1 for n in raw_names if ' ' in n)
@@ -263,10 +242,8 @@ def _aggregate_history(db, start, end, bucket_sec, server_id=None):
     """将指定时间范围内的历史数据聚合到 bucket_sec 粒度"""
     sid_filter = 'AND server_id=?' if server_id else ''
     params = (bucket_sec, bucket_sec, start, end) + ((server_id,) if server_id else ())
-    # 先删旧的聚合行
     db.execute(f"DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list = '[]' {sid_filter}",
                (start, end) + ((server_id,) if server_id else ()))
-    # 聚合所有行（含已有的聚合行，但已删）
     db.execute(f'''
         INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency)
         SELECT server_id,
@@ -276,7 +253,6 @@ def _aggregate_history(db, start, end, bucket_sec, server_id=None):
         WHERE timestamp >= ? AND timestamp < ? {sid_filter}
         GROUP BY server_id, bucket
     ''', params)
-    # 删原始行（player_list 非空）
     db.execute(f"DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list != '[]' {sid_filter}",
                (start, end) + ((server_id,) if server_id else ()))
 
@@ -288,14 +264,12 @@ def optimize_database(aggregate=False, delete_days=0) -> str:
     import datetime
     from pathlib import Path
 
-    # 备份目录
     backup_dir = Path(_get_db_path()).parent / 'backup'
     backup_dir.mkdir(exist_ok=True)
     date_str = datetime.date.today().strftime('%Y%m%d')
     backup_name = f'monitor.db.bak.{date_str}'
     backup_path = str(backup_dir / backup_name)
 
-    # 压缩备份
     with open(_get_db_path(), 'rb') as src, gzip.open(backup_path + '.gz', 'wb') as dst:
         shutil.copyfileobj(src, dst)
 
@@ -303,19 +277,14 @@ def optimize_database(aggregate=False, delete_days=0) -> str:
     db.execute('PRAGMA foreign_keys = ON')
     now = time.time()
 
-    # 删除指定天数前数据
     if delete_days > 0:
         cutoff = now - delete_days * 24 * 3600
         db.execute("DELETE FROM history WHERE timestamp < ?", (cutoff,))
 
-    # 聚合旧数据粒度
     if aggregate:
-        # 聚合 7-35 天 → 30 分钟粒度
         _aggregate_history(db, now - 35 * 24 * 3600, now - 7 * 24 * 3600, 1800)
-        # 聚合 24h-7d → 5 分钟粒度
         _aggregate_history(db, now - 7 * 24 * 3600, now - 24 * 3600, 300)
 
-    # 清理重复 session
     db.execute('''
         DELETE FROM player_sessions WHERE id IN (
             SELECT s1.id FROM player_sessions s1
@@ -440,7 +409,6 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
             anon_count += 1
             continue
 
-        # 正常玩家
         canonical = _ensure_player(db, name, now)
         current_keys.add(canonical)
 
@@ -457,7 +425,6 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
                 db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
                            (canonical, server_id, server_name, now))
 
-    # ---- 匿名玩家组：合并为 "Anonymous Player"，时间乘以人数 ----
     if anon_count > 0:
         canonical = _ensure_player(db, _ANON_NAME, now)
         current_keys.add(canonical)
@@ -471,7 +438,6 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
                        (canonical, server_id, server_name, now))
         else:
             info = _active_players[canonical]
-            # 按上一次人数累计时长
             elapsed = now - info.get('last_accum_time', info['login_time'])
             if elapsed > 0 and info.get('anon_count', 0) > 0:
                 db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?",
@@ -491,7 +457,6 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
     db.commit()
     db.close()
 
-    # 离线判定
     ended = []
     for name, info in list(_active_players.items()):
         if name not in current_keys:
@@ -514,7 +479,6 @@ def _enrich_player_uuid(p: dict) -> dict:
     """为玩家补充 UUID（从缓存或 DB 或 API）"""
     if p.get('uuid'):
         return p
-    # 尝试从 API 获取
     fetched = _fetch_player_uuid(p['name'])
     if fetched:
         db = sqlite3.connect(_get_db_path())

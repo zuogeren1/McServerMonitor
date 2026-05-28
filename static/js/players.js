@@ -35,13 +35,11 @@ async function loadPlayerList() {
   let anonPlayers = players.filter(p => p.anonymous);
   let normalPlayers = players.filter(p => !p.anonymous);
 
-  // 搜索过滤（不区分大小写）
   if (playerSearchTerm) {
     anonPlayers = anonPlayers.filter(p => p.name.toLowerCase().includes(playerSearchTerm));
     normalPlayers = normalPlayers.filter(p => p.name.toLowerCase().includes(playerSearchTerm));
   }
 
-  // 匿名玩家区域
   const anonSection = document.getElementById('anonymousSection');
   const anonList = document.getElementById('anonymousPlayerList');
   if (anonPlayers.length > 0) {
@@ -52,7 +50,6 @@ async function loadPlayerList() {
     anonList.innerHTML = playerSearchTerm ? '' : '<div style="color:var(--muted);font-size:0.8rem;">暂无匿名玩家</div>';
   }
 
-  // 正常玩家区域
   const container = document.getElementById('playerListContainer');
   const empty = document.getElementById('playersEmpty');
   if (normalPlayers.length === 0) {
@@ -112,7 +109,6 @@ async function loadPlayerDetail(name) {
   if (!resp.ok) return;
   const p = await resp.json();
 
-  // 首次加载缓存 UUID，刷新时复用，避免重复查询
   if (!pdCachedUuid && p.uuid) pdCachedUuid = p.uuid;
   const displayUuid = pdCachedUuid || p.uuid || '--';
 
@@ -155,7 +151,6 @@ async function loadPlayerDetail(name) {
   }
   _setHtmlSafe(rsEl, rsHtml);
 
-  // Hourly chart
   const hourly = p.hourly_minutes || new Array(24).fill(0);
   const ctx = document.getElementById('pdHourlyChart').getContext('2d');
   const chartIsMobile = window.matchMedia('(max-width: 768px)').matches;

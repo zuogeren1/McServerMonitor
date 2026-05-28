@@ -198,7 +198,6 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
     xScaleConfig.max = chartFullMax;
   }
 
-  // 转为 {x, y} 格式以启用 LTTB 抽稀
   const pointData = labels.map((l, i) => ({x: l.getTime(), y: values[i]}));
 
   historyChart = new Chart(ctx, {
@@ -329,7 +328,6 @@ async function appendRealtimeData(sid) {
 
   chartLastTs = historyData.length > 0 ? historyData[historyData.length - 1].timestamp : chartLastTs;
 
-  // 更新为 {x, y} 格式
   historyChart.data.datasets[0].data = historyData.map(d => ({x: d.timestamp * 1000, y: d.player_count || (d.online ? 0 : null)}));
   historyChart.options.scales.y.max = computeYMax(historyData.map(d => d.player_count || (d.online ? 0 : null)));
   historyChart.update('default');
