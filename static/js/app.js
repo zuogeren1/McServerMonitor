@@ -1,5 +1,10 @@
 // ---- State ----
 const socket = io();
+let _socketConnected = true;
+
+socket.on('connect', () => { _socketConnected = true; });
+socket.on('disconnect', () => { _socketConnected = false; });
+socket.on('connect_error', () => { _socketConnected = false; });
 const RANGE_SECONDS = { '15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800, '30d': 2592000 };
 let currentPage = 'home';
 let currentStatuses = [];
@@ -193,6 +198,7 @@ function openDetail(sid) {
   document.getElementById('page-detail').classList.add('active');
   pinnedPoint = null;
   document.getElementById('pinnedSection').classList.remove('visible');
+  if (typeof _startRealtimeInterval === 'function') _startRealtimeInterval();
   loadDetailPage(sid);
   loadHistoryChart(sid, '15m');
 }
@@ -200,6 +206,7 @@ function openDetail(sid) {
 function goBackFromDetail() {
   detailServerId = null;
   if (historyChart) { historyChart.destroy(); historyChart = null; }
+  if (typeof _stopRealtimeInterval === 'function') _stopRealtimeInterval();
   switchPage(prevPage || 'home');
 }
 
@@ -462,7 +469,7 @@ function _loadConfigIntoForm(c) {
 }
 
 function renderAdmin() {
-  fetch('/api/config').then(r => r.json()).then(_loadConfigIntoForm);
+  fetch('/api/config').then(r => r.json()).then(_loadConfigIntoForm).catch(() => {});
   fetch('/api/servers').then(r => r.json()).then(servers => {
     const list = document.getElementById('adminServerList');
     if (servers.length === 0) {
@@ -505,7 +512,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
   }).then(() => {
     document.getElementById('authPassword').value = '';
     alert('设置已保存。监听地址/端口/数据库路径需重启后生效');
-  });
+  }).catch(() => {});
 });
 
 // ---- Player Manage Page ----
@@ -795,10 +802,8 @@ function avatarUrl(uuid, name) {
 }
 function esc(str) {
   if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-fetch('/api/config').then(r => r.json()).then(_loadConfigIntoForm);
+fetch('/api/config').then(r => r.json()).then(_loadConfigIntoForm).catch(() => {});
 updateServerNotifBtn();

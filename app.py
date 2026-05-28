@@ -4,7 +4,6 @@ eventlet.monkey_patch()
 import json
 import os
 import secrets
-import threading
 import time
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session
@@ -19,7 +18,7 @@ from db import (
 from mc_query import query_one_server
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mc-monitor-secret'
+app.config['SECRET_KEY'] = secrets.token_hex(24)
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
 
 server_statuses: dict[int, dict] = {}
@@ -229,6 +228,8 @@ def api_admin_config():
     if 'check_interval' in data:
         _config['check_interval'] = int(data['check_interval'])
         check_interval = _config['check_interval']
+        import db
+        db.check_interval = check_interval
     if 'username' in data and 'password' in data:
         if data['password']:
             _config['username'] = data['username']
@@ -255,7 +256,7 @@ def api_optimize():
             aggregate=data.get('aggregate', False),
             delete_days=int(data.get('delete_days', 0)),
         )
-        size_mb = os.path.getsize('monitor.db') / 1024 / 1024
+        size_mb = os.path.getsize(_config.get('db_path', 'monitor.db')) / 1024 / 1024
         return jsonify({'ok': True, 'backup': backup, 'size_mb': round(size_mb, 1)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -300,5 +301,5 @@ if __name__ == '__main__':
         server_statuses[s['id']] = status
         save_history(s['id'], status)
         track_players(s['id'], status['server_name'], status['players']['list'])
-    threading.Thread(target=poll_loop, daemon=True).start()
+    eventlet.spawn(poll_loop)
     socketio.run(app, host=_config.get('host', '0.0.0.0'), port=_config.get('port', 9000), debug=False)

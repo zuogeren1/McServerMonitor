@@ -5,6 +5,7 @@ import sqlite3
 import os
 import urllib.request
 import urllib.error
+from contextlib import contextmanager
 
 _db_path = None
 
@@ -27,6 +28,18 @@ RANGE_SECONDS = {
 
 # 玩家在线追踪 — 以名称为 key，UUID 仅用于显示
 _active_players: dict[str, dict] = {}
+
+
+@contextmanager
+def _get_conn(commit=False):
+    db = sqlite3.connect(_get_db_path())
+    db.row_factory = sqlite3.Row
+    try:
+        yield db
+        if commit:
+            db.commit()
+    finally:
+        db.close()
 
 
 def parse_address(addr_str: str) -> tuple[str, int | None]:
@@ -166,53 +179,45 @@ check_interval = 5  # 由 init_db 更新
 
 
 def get_all_servers():
-    db = sqlite3.connect(_get_db_path())
-    db.row_factory = sqlite3.Row
-    servers = db.execute("SELECT * FROM servers ORDER BY id").fetchall()
-    result = []
-    for s in servers:
-        backups = db.execute("SELECT * FROM backup_addresses WHERE server_id=? ORDER BY priority", (s['id'],)).fetchall()
-        result.append({
-            'id': s['id'], 'name': s['name'],
-            'primary_host': s['primary_host'], 'primary_port': s['primary_port'],
-            'server_type': s['server_type'] if 'server_type' in s.keys() else 'java',
-            'backups': [{'id': b['id'], 'host': b['host'], 'port': b['port'], 'priority': b['priority']} for b in backups],
-        })
-    db.close()
+    with _get_conn() as db:
+        servers = db.execute("SELECT * FROM servers ORDER BY id").fetchall()
+        result = []
+        for s in servers:
+            backups = db.execute("SELECT * FROM backup_addresses WHERE server_id=? ORDER BY priority", (s['id'],)).fetchall()
+            result.append({
+                'id': s['id'], 'name': s['name'],
+                'primary_host': s['primary_host'], 'primary_port': s['primary_port'],
+                'server_type': s['server_type'] if 'server_type' in s.keys() else 'java',
+                'backups': [{'id': b['id'], 'host': b['host'], 'port': b['port'], 'priority': b['priority']} for b in backups],
+            })
     return result
 
 
 def add_server(name, primary_host, primary_port, backups, server_type='java'):
-    db = sqlite3.connect(_get_db_path())
-    db.execute('PRAGMA foreign_keys = ON')
-    cur = db.execute("INSERT INTO servers (name, primary_host, primary_port, server_type) VALUES (?, ?, ?, ?)", (name, primary_host, primary_port, server_type))
-    sid = cur.lastrowid
-    for i, b in enumerate(backups):
-        db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (sid, b['host'], b['port'], i))
-    db.commit()
-    db.close()
+    with _get_conn(commit=True) as db:
+        db.execute('PRAGMA foreign_keys = ON')
+        cur = db.execute("INSERT INTO servers (name, primary_host, primary_port, server_type) VALUES (?, ?, ?, ?)", (name, primary_host, primary_port, server_type))
+        sid = cur.lastrowid
+        for i, b in enumerate(backups):
+            db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (sid, b['host'], b['port'], i))
     return sid
 
 
 def delete_server(server_id):
-    db = sqlite3.connect(_get_db_path())
-    db.execute('PRAGMA foreign_keys = ON')
-    db.execute("DELETE FROM history WHERE server_id=?", (server_id,))
-    db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
-    db.execute("DELETE FROM servers WHERE id=?", (server_id,))
-    db.commit()
-    db.close()
+    with _get_conn(commit=True) as db:
+        db.execute('PRAGMA foreign_keys = ON')
+        db.execute("DELETE FROM history WHERE server_id=?", (server_id,))
+        db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
+        db.execute("DELETE FROM servers WHERE id=?", (server_id,))
 
 
 def update_server(server_id, name, primary_host, primary_port, backups, server_type='java'):
-    db = sqlite3.connect(_get_db_path())
-    db.execute('PRAGMA foreign_keys = ON')
-    db.execute("UPDATE servers SET name=?, primary_host=?, primary_port=?, server_type=? WHERE id=?", (name, primary_host, primary_port, server_type, server_id))
-    db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
-    for i, b in enumerate(backups):
-        db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (server_id, b['host'], b['port'], i))
-    db.commit()
-    db.close()
+    with _get_conn(commit=True) as db:
+        db.execute('PRAGMA foreign_keys = ON')
+        db.execute("UPDATE servers SET name=?, primary_host=?, primary_port=?, server_type=? WHERE id=?", (name, primary_host, primary_port, server_type, server_id))
+        db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
+        for i, b in enumerate(backups):
+            db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (server_id, b['host'], b['port'], i))
 
 
 def save_history(server_id: int, status: dict):
@@ -221,21 +226,17 @@ def save_history(server_id: int, status: dict):
     names = [n for n in raw_names if ' ' not in n]
     if anon_count > 0:
         names.append(f"{_ANON_NAME} x{anon_count}")
-    db = sqlite3.connect(_get_db_path())
-    db.execute(
-        "INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency) VALUES (?, ?, ?, ?, ?, ?)",
-        (server_id, time.time(), 1 if status['online'] else 0, status['players']['online'],
-         json.dumps(names, ensure_ascii=False), status['latency']))
-    db.commit()
-    db.close()
+    with _get_conn(commit=True) as db:
+        db.execute(
+            "INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency) VALUES (?, ?, ?, ?, ?, ?)",
+            (server_id, time.time(), 1 if status['online'] else 0, status['players']['online'],
+             json.dumps(names, ensure_ascii=False), status['latency']))
 
 
 def cleanup_old_history():
     cutoff = time.time() - 35 * 24 * 3600
-    db = sqlite3.connect(_get_db_path())
-    db.execute("DELETE FROM history WHERE timestamp < ?", (cutoff,))
-    db.commit()
-    db.close()
+    with _get_conn(commit=True) as db:
+        db.execute("DELETE FROM history WHERE timestamp < ?", (cutoff,))
 
 
 def _aggregate_history(db, start, end, bucket_sec, server_id=None):
@@ -313,34 +314,32 @@ def get_history(server_id: int, range_str: str = None, start: float = None, end:
 
     duration = end - start
     estimated_points = max(duration / max(check_interval, 1), 1)
-    db = sqlite3.connect(_get_db_path())
-    db.row_factory = sqlite3.Row
 
-    if estimated_points <= 3000:
-        rows = db.execute(
-            "SELECT timestamp, online, player_count, player_list, latency FROM history "
-            "WHERE server_id=? AND timestamp>=? AND timestamp<=? ORDER BY timestamp",
-            (server_id, start, end)).fetchall()
-        result = []
-        for r in rows:
-            pl = json.loads(r['player_list']) if r['player_list'] else []
-            result.append({'timestamp': r['timestamp'], 'online': bool(r['online']),
-                           'player_count': r['player_count'],
-                           'player_list': sorted(pl, key=lambda n: n.lower()),
-                           'latency': r['latency']})
-    else:
-        bucket_seconds = max(int(duration / 2000), 1)
-        rows = db.execute(
-            """SELECT ROUND(timestamp / ?) * ? as bucket_time, ROUND(AVG(player_count)) as player_count,
-                      MAX(online) as online, ROUND(AVG(latency), 1) as latency
-               FROM history WHERE server_id=? AND timestamp>=? AND timestamp<=?
-               GROUP BY bucket_time ORDER BY bucket_time""",
-            (bucket_seconds, bucket_seconds, server_id, start, end)).fetchall()
-        result = []
-        for r in rows:
-            result.append({'timestamp': r['bucket_time'], 'online': bool(r['online']),
-                           'player_count': r['player_count'], 'player_list': [], 'latency': r['latency']})
-    db.close()
+    with _get_conn() as db:
+        if estimated_points <= 3000:
+            rows = db.execute(
+                "SELECT timestamp, online, player_count, player_list, latency FROM history "
+                "WHERE server_id=? AND timestamp>=? AND timestamp<=? ORDER BY timestamp",
+                (server_id, start, end)).fetchall()
+            result = []
+            for r in rows:
+                pl = json.loads(r['player_list']) if r['player_list'] else []
+                result.append({'timestamp': r['timestamp'], 'online': bool(r['online']),
+                               'player_count': r['player_count'],
+                               'player_list': sorted(pl, key=lambda n: n.lower()),
+                               'latency': r['latency']})
+        else:
+            bucket_seconds = max(int(duration / 2000), 1)
+            rows = db.execute(
+                """SELECT ROUND(timestamp / ?) * ? as bucket_time, ROUND(AVG(player_count)) as player_count,
+                          MAX(online) as online, ROUND(AVG(latency), 1) as latency
+                   FROM history WHERE server_id=? AND timestamp>=? AND timestamp<=?
+                   GROUP BY bucket_time ORDER BY bucket_time""",
+                (bucket_seconds, bucket_seconds, server_id, start, end)).fetchall()
+            result = []
+            for r in rows:
+                result.append({'timestamp': r['bucket_time'], 'online': bool(r['online']),
+                               'player_count': r['player_count'], 'player_list': [], 'latency': r['latency']})
     return result
 
 
@@ -364,8 +363,8 @@ def _fetch_player_uuid(name: str) -> str | None:
                 uuid = data['data']['player']['id']
                 _uuid_cache[name] = uuid
                 return uuid
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'[db] UUID fetch error for {name}: {e}')
     _uuid_cache[name] = None
     return None
 
@@ -397,79 +396,73 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
     global _active_players
     now = time.time()
     current_keys = set()
-    db = sqlite3.connect(_get_db_path())
-    db.row_factory = sqlite3.Row
 
-    anon_count = 0
-    for p in player_list:
-        name = (p.get('name') or '').strip()
-        if not name:
-            continue
-        if ' ' in name:
-            anon_count += 1
-            continue
+    with _get_conn(commit=True) as db:
+        anon_count = 0
+        for p in player_list:
+            name = (p.get('name') or '').strip()
+            if not name:
+                continue
+            if ' ' in name:
+                anon_count += 1
+                continue
 
-        canonical = _ensure_player(db, name, now)
-        current_keys.add(canonical)
+            canonical = _ensure_player(db, name, now)
+            current_keys.add(canonical)
 
-        if canonical not in _active_players:
-            _active_players[canonical] = _new_active(canonical, server_id, server_name, now)
-            db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
-                       (canonical, server_id, server_name, now))
-        else:
-            info = _active_players[canonical]
-            info['miss_count'] = 0
-            if info['server_id'] != server_id:
-                _end_active_session(db, canonical, now, info)
+            if canonical not in _active_players:
                 _active_players[canonical] = _new_active(canonical, server_id, server_name, now)
                 db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
                            (canonical, server_id, server_name, now))
+            else:
+                info = _active_players[canonical]
+                info['miss_count'] = 0
+                if info['server_id'] != server_id:
+                    _end_active_session(db, canonical, now, info)
+                    _active_players[canonical] = _new_active(canonical, server_id, server_name, now)
+                    db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
+                               (canonical, server_id, server_name, now))
 
-    if anon_count > 0:
-        canonical = _ensure_player(db, _ANON_NAME, now)
-        current_keys.add(canonical)
+        if anon_count > 0:
+            canonical = _ensure_player(db, _ANON_NAME, now)
+            current_keys.add(canonical)
 
-        if canonical not in _active_players:
-            _active_players[canonical] = {
-                **_new_active(canonical, server_id, server_name, now),
-                'anon_count': anon_count, 'last_accum_time': now,
-            }
-            db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
-                       (canonical, server_id, server_name, now))
-        else:
-            info = _active_players[canonical]
-            elapsed = now - info.get('last_accum_time', info['login_time'])
-            if elapsed > 0 and info.get('anon_count', 0) > 0:
-                db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?",
-                           (elapsed * info['anon_count'], canonical))
-            info['anon_count'] = anon_count
-            info['last_accum_time'] = now
-            info['miss_count'] = 0
-            if info['server_id'] != server_id:
-                _end_active_session(db, canonical, now, info)
+            if canonical not in _active_players:
                 _active_players[canonical] = {
                     **_new_active(canonical, server_id, server_name, now),
                     'anon_count': anon_count, 'last_accum_time': now,
                 }
                 db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
                            (canonical, server_id, server_name, now))
-
-    db.commit()
-    db.close()
+            else:
+                info = _active_players[canonical]
+                elapsed = now - info.get('last_accum_time', info['login_time'])
+                if elapsed > 0 and info.get('anon_count', 0) > 0:
+                    db.execute("UPDATE players SET total_online_seconds = total_online_seconds + ? WHERE name=?",
+                               (elapsed * info['anon_count'], canonical))
+                info['anon_count'] = anon_count
+                info['last_accum_time'] = now
+                info['miss_count'] = 0
+                if info['server_id'] != server_id:
+                    _end_active_session(db, canonical, now, info)
+                    _active_players[canonical] = {
+                        **_new_active(canonical, server_id, server_name, now),
+                        'anon_count': anon_count, 'last_accum_time': now,
+                    }
+                    db.execute("INSERT INTO player_sessions (player_name, server_id, server_name, login_time) VALUES (?, ?, ?, ?)",
+                               (canonical, server_id, server_name, now))
 
     ended = []
     for name, info in list(_active_players.items()):
         if name not in current_keys:
             info['miss_count'] += 1
             if info['miss_count'] >= _MISS_THRESHOLD:
-                edb = sqlite3.connect(_get_db_path())
-                extra = 0
-                if info.get('anon_count'):
-                    elapsed = now - info.get('last_accum_time', info['login_time'])
-                    extra = elapsed * info['anon_count']
-                _end_active_session(edb, name, now, info, extra)
-                edb.commit()
-                edb.close()
+                with _get_conn(commit=True) as edb:
+                    extra = 0
+                    if info.get('anon_count'):
+                        elapsed = now - info.get('last_accum_time', info['login_time'])
+                        extra = elapsed * info['anon_count']
+                    _end_active_session(edb, name, now, info, extra)
                 ended.append(name)
     for name in ended:
         del _active_players[name]
@@ -481,35 +474,31 @@ def _enrich_player_uuid(p: dict) -> dict:
         return p
     fetched = _fetch_player_uuid(p['name'])
     if fetched:
-        db = sqlite3.connect(_get_db_path())
-        db.execute("UPDATE players SET uuid=? WHERE name=?", (fetched, p['name']))
-        db.commit()
-        db.close()
+        with _get_conn(commit=True) as db:
+            db.execute("UPDATE players SET uuid=? WHERE name=?", (fetched, p['name']))
         p['uuid'] = fetched
     return p
 
 
 def get_players(filter_online: str | None = None, sort_by: str = 'name'):
-    db = sqlite3.connect(_get_db_path())
-    db.row_factory = sqlite3.Row
-    query = "SELECT * FROM players"
-    params = []
-    if filter_online == 'online':
-        active_keys = list(_active_players.keys())
-        if active_keys:
-            query += f" WHERE name IN ({','.join(['?' for _ in active_keys])})"
-            params = active_keys
-        else:
-            query += " WHERE 1=0"
-    elif filter_online == 'offline':
-        active_keys = list(_active_players.keys())
-        if active_keys:
-            query += f" WHERE name NOT IN ({','.join(['?' for _ in active_keys])})"
-            params = active_keys
-    order_map = {'name': 'name COLLATE NOCASE ASC', 'last_seen': 'last_seen DESC', 'total_time': 'total_online_seconds DESC'}
-    query += f" ORDER BY {order_map.get(sort_by, 'name COLLATE NOCASE ASC')}"
-    rows = db.execute(query, params).fetchall()
-    db.close()
+    with _get_conn() as db:
+        query = "SELECT * FROM players"
+        params = []
+        if filter_online == 'online':
+            active_keys = list(_active_players.keys())
+            if active_keys:
+                query += f" WHERE name IN ({','.join(['?' for _ in active_keys])})"
+                params = active_keys
+            else:
+                query += " WHERE 1=0"
+        elif filter_online == 'offline':
+            active_keys = list(_active_players.keys())
+            if active_keys:
+                query += f" WHERE name NOT IN ({','.join(['?' for _ in active_keys])})"
+                params = active_keys
+        order_map = {'name': 'name COLLATE NOCASE ASC', 'last_seen': 'last_seen DESC', 'total_time': 'total_online_seconds DESC'}
+        query += f" ORDER BY {order_map.get(sort_by, 'name COLLATE NOCASE ASC')}"
+        rows = db.execute(query, params).fetchall()
 
     now = time.time()
     return [{
@@ -524,38 +513,30 @@ def get_players(filter_online: str | None = None, sort_by: str = 'name'):
 
 
 def get_player_list_at_time(server_id: int, timestamp: float):
-    db = sqlite3.connect(_get_db_path())
-    db.row_factory = sqlite3.Row
-    row = db.execute(
-        "SELECT player_list FROM history WHERE server_id=? ORDER BY ABS(timestamp - ?) LIMIT 1",
-        (server_id, timestamp)).fetchone()
-    db.close()
+    with _get_conn() as db:
+        row = db.execute(
+            "SELECT player_list FROM history WHERE server_id=? ORDER BY ABS(timestamp - ?) LIMIT 1",
+            (server_id, timestamp)).fetchone()
     pl = json.loads(row['player_list']) if row and row['player_list'] else []
     return sorted(pl, key=lambda n: n.lower())
 
 
 def delete_player(name: str):
     global _active_players
-    db = sqlite3.connect(_get_db_path())
-    db.execute('PRAGMA foreign_keys = ON')
-    db.execute("DELETE FROM player_sessions WHERE player_name=?", (name,))
-    db.execute("DELETE FROM players WHERE name=?", (name,))
-    db.commit()
-    db.close()
+    with _get_conn(commit=True) as db:
+        db.execute('PRAGMA foreign_keys = ON')
+        db.execute("DELETE FROM player_sessions WHERE player_name=?", (name,))
+        db.execute("DELETE FROM players WHERE name=?", (name,))
     _active_players.pop(name, None)
     _uuid_cache.pop(name, None)
 
 
 def get_player_detail(name: str):
-    db = sqlite3.connect(_get_db_path())
-    db.row_factory = sqlite3.Row
-    player = db.execute("SELECT * FROM players WHERE name=? COLLATE NOCASE", (name,)).fetchone()
-    if not player:
-        db.close()
-        return None
-
-    all_sessions = db.execute("SELECT * FROM player_sessions WHERE player_name=? COLLATE NOCASE", (name,)).fetchall()
-    db.close()
+    with _get_conn() as db:
+        player = db.execute("SELECT * FROM players WHERE name=? COLLATE NOCASE", (name,)).fetchone()
+        if not player:
+            return None
+        all_sessions = db.execute("SELECT * FROM player_sessions WHERE player_name=? COLLATE NOCASE", (name,)).fetchall()
 
     now_ts = time.time()
     hourly = [0.0] * 24

@@ -414,11 +414,22 @@ document.getElementById('applyCustomRange').addEventListener('click', () => {
   if (detailServerId) loadHistoryChart(detailServerId, 'custom');
 });
 
-setInterval(() => {
-  if (currentPage === 'detail' && detailServerId) {
-    if (chartCurrentRange === '15m') {
-      appendRealtimeData(detailServerId);
+let _realtimeInterval = null;
+
+function _startRealtimeInterval() {
+  if (_realtimeInterval) return;
+  _realtimeInterval = setInterval(() => {
+    if (currentPage === 'detail' && detailServerId) {
+      if (chartCurrentRange === '15m') {
+        appendRealtimeData(detailServerId);
+      }
+      loadDetailPage(detailServerId);
     }
-    loadDetailPage(detailServerId);
-  }
-}, 5000);
+  }, 5000);
+}
+
+function _stopRealtimeInterval() {
+  if (_realtimeInterval) { clearInterval(_realtimeInterval); _realtimeInterval = null; }
+}
+
+_startRealtimeInterval();
