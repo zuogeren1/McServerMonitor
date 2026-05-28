@@ -28,8 +28,8 @@ python app.py                   # http://localhost:9000
 
 | 页面 | 功能 |
 | --- | --- |
-| 首页 | 所有服务器概览卡片（在线状态、延迟、版本） |
-| 服务器 | 服务器列表 + MOTD + 在线玩家数 |
+| 首页 | 所有服务器概览卡片（在线状态、延迟、版本、玩家数、副地址状态） |
+| 服务器 | 服务器列表 + MOTD + 在线玩家数 + 副地址状态 |
 | 玩家 | 所有玩家列表，支持在线/离线筛选、按名称/时长/最后在线排序，点击进入详情 |
 | 玩家详情 | 基本信息、UUID、当前所在服务器、最近访问记录、24 小时在线时段柱状图 |
 | 服务器详情 | 版本/协议/MOTD 信息、在线玩家列表（点击跳转详情）、副地址状态、**在线历史折线图** |
@@ -84,7 +84,7 @@ python app.py                   # http://localhost:9000
 
 ## 数据流
 
-后台轮询线程（间隔 `check_interval` 秒）查询所有服务器 → 写入内存状态 + SQLite 历史 → 通过 Socket.IO 推送全量状态到所有前端。玩家追踪通过对比连续两轮在线列表的快照来判断上下线，连续 3 次轮询不在线才判定离线。
+后台轮询（间隔 `check_interval` 秒）并行查询所有服务器和地址 → 写入内存状态 + SQLite 历史 → 通过 Socket.IO 推送全量状态到所有前端。查询睡眠时间动态调整，确保实际间隔等于配置值。玩家追踪通过对比连续两轮在线列表的快照来判断上下线，连续 3 次轮询不在线才判定离线。
 
 ## 地址格式与回退
 
@@ -156,6 +156,6 @@ python app.py                   # http://localhost:9000
 
 - Python 3.10+
 - Flask + Flask-SocketIO + eventlet
-- mcstatus（Minecraft Java 服务器查询）
+- mcstatus（Minecraft Java / Bedrock 服务器查询）
 - Chart.js + chartjs-adapter-date-fns + chartjs-plugin-zoom + Hammer.js（CDN 引入）
 - Socket.IO 客户端（CDN 引入）

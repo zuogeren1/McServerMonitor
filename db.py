@@ -1,11 +1,14 @@
 import datetime
+import gzip
 import json
-import time
-import sqlite3
 import os
+import shutil
+import sqlite3
+import time
 import urllib.request
 import urllib.error
 from contextlib import contextmanager
+from pathlib import Path
 
 _db_path = None
 
@@ -241,30 +244,38 @@ def cleanup_old_history():
 
 def _aggregate_history(db, start, end, bucket_sec, server_id=None):
     """将指定时间范围内的历史数据聚合到 bucket_sec 粒度"""
-    sid_filter = 'AND server_id=?' if server_id else ''
-    params = (bucket_sec, bucket_sec, start, end) + ((server_id,) if server_id else ())
-    db.execute(f"DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list = '[]' {sid_filter}",
-               (start, end) + ((server_id,) if server_id else ()))
-    db.execute(f'''
-        INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency)
-        SELECT server_id,
-               ROUND(timestamp / ?) * ? as bucket,
-               MAX(online), ROUND(AVG(player_count)), '[]', ROUND(AVG(latency), 1)
-        FROM history
-        WHERE timestamp >= ? AND timestamp < ? {sid_filter}
-        GROUP BY server_id, bucket
-    ''', params)
-    db.execute(f"DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list != '[]' {sid_filter}",
-               (start, end) + ((server_id,) if server_id else ()))
+    if server_id:
+        db.execute("DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list = '[]' AND server_id=?",
+                   (start, end, server_id))
+        db.execute('''
+            INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency)
+            SELECT server_id,
+                   ROUND(timestamp / ?) * ? as bucket,
+                   MAX(online), ROUND(AVG(player_count)), '[]', ROUND(AVG(latency), 1)
+            FROM history
+            WHERE timestamp >= ? AND timestamp < ? AND server_id=?
+            GROUP BY server_id, bucket
+        ''', (bucket_sec, bucket_sec, start, end, server_id))
+        db.execute("DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list != '[]' AND server_id=?",
+                   (start, end, server_id))
+    else:
+        db.execute("DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list = '[]'",
+                   (start, end))
+        db.execute('''
+            INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency)
+            SELECT server_id,
+                   ROUND(timestamp / ?) * ? as bucket,
+                   MAX(online), ROUND(AVG(player_count)), '[]', ROUND(AVG(latency), 1)
+            FROM history
+            WHERE timestamp >= ? AND timestamp < ?
+            GROUP BY server_id, bucket
+        ''', (bucket_sec, bucket_sec, start, end))
+        db.execute("DELETE FROM history WHERE timestamp >= ? AND timestamp < ? AND player_list != '[]'",
+                   (start, end))
 
 
 def optimize_database(aggregate=False, delete_days=0) -> str:
     """优化数据库，返回备份路径。aggregate=True 时聚合旧数据粒度，delete_days>0 时删除指定天数前数据"""
-    import gzip
-    import shutil
-    import datetime
-    from pathlib import Path
-
     backup_dir = Path(_get_db_path()).parent / 'backup'
     backup_dir.mkdir(exist_ok=True)
     date_str = datetime.date.today().strftime('%Y%m%d')

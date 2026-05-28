@@ -28,6 +28,7 @@ function renderPlayerRow(p) {
 }
 
 async function loadPlayerList() {
+  try {
   const url = `/api/players?filter=${playerFilter === 'all' ? '' : playerFilter}&sort=${playerSort}`;
   const resp = await fetch(url);
   const players = await resp.json();
@@ -59,6 +60,7 @@ async function loadPlayerList() {
   }
   empty.style.display = 'none';
   container.innerHTML = normalPlayers.map(renderPlayerRow).join('');
+  } catch(e) {}
 }
 
 function formatDuration(sec) {
@@ -105,6 +107,7 @@ function goBackFromPlayerDetail() {
 }
 
 async function loadPlayerDetail(name) {
+  try {
   const resp = await fetch(`/api/players/${encodeURIComponent(name)}`);
   if (!resp.ok) return;
   const p = await resp.json();
@@ -223,4 +226,5 @@ async function loadPlayerDetail(name) {
     },
     plugins: [barLabelPlugin],
   });
+  } catch(e) {}
 }
