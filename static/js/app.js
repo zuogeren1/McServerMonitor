@@ -9,6 +9,7 @@ const RANGE_SECONDS = { '15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d':
 let currentPage = 'home';
 let currentStatuses = [];
 let detailServerId = null;
+let detailServerAddr = '';
 let prevPage = 'home';
 let historyChart = null;
 let historyData = [];
@@ -238,13 +239,33 @@ function _setTextSafe(el, text) {
   if (el._lastText !== text) { el._lastText = text; el.textContent = text; }
 }
 
+async function _copyText(text, el) {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    const scope = el || document;
+    scope.querySelectorAll('.copy-icon').forEach(e => e.style.display = 'none');
+    scope.querySelectorAll('.check-icon').forEach(e => e.style.display = '');
+    setTimeout(() => {
+      scope.querySelectorAll('.copy-icon').forEach(e => e.style.display = '');
+      scope.querySelectorAll('.check-icon').forEach(e => e.style.display = 'none');
+    }, 1500);
+  } catch(e) {}
+}
+
+async function copyServerAddr() {
+  _copyText(detailServerAddr, document.getElementById('detailAddr'));
+}
+
 function loadDetailPage(sid) {
   const s = currentStatuses.find(x => x.server_id === sid);
   if (!s) return;
 
   updatePlayerNotifBtn(sid);
   document.getElementById('detailTitle').innerHTML = esc(s.server_name) + ' <span class="type-badge type-' + (s.server_type || 'java') + '">' + (s.server_type === 'bedrock' ? '基岩' : 'Java') + '</span>';
-  document.getElementById('detailAddr').textContent = fmtAddr(s.active_host, s.active_port);
+  const addr = fmtAddr(s.active_host, s.active_port);
+  detailServerAddr = addr;
+  document.getElementById('detailAddr').innerHTML = `${esc(addr)} <span class="copy-btn" onclick="copyServerAddr()" title="复制地址" style="cursor:pointer;"><svg class="svg-icon sm copy-icon" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2 2 0 0 1 3 15V5c0-1.1.9-2 2-2h10c.75 0 1.158.385 1.5 1"/></g></svg><svg class="svg-icon sm check-icon" viewBox="0 0 24 24" style="display:none;"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
   const tag = document.getElementById('detailStatusTag');
   tag.textContent = s.online ? '在线' : '离线';
   tag.className = 'status-tag ' + (s.online ? 'online' : 'offline');
@@ -315,7 +336,7 @@ function loadDetailPage(sid) {
           <span class="backup-status-dot ${b.online ? 'green' : 'red'}"></span>
           <span style="font-size:0.75rem;color:var(--muted);">${b.type === 'primary' ? '主地址' : '副地址'}</span>
         </span>
-        <span class="addr">${fmtAddr(b.host, b.port)}</span>
+        <span class="addr">${fmtAddr(b.host, b.port)} <span class="copy-btn" onclick="_copyText('${esc(fmtAddr(b.host, b.port))}', this)" title="复制地址" style="cursor:pointer;"><svg class="svg-icon sm copy-icon" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2 2 0 0 1 3 15V5c0-1.1.9-2 2-2h10c.75 0 1.158.385 1.5 1"/></g></svg><svg class="svg-icon sm check-icon" viewBox="0 0 24 24" style="display:none;"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
         <span style="color:${b.online ? 'var(--online)' : 'var(--offline)'};font-size:0.8rem;">
           ${b.online ? (b.latency ? b.latency + 'ms' : '在线') : '离线'}
         </span>

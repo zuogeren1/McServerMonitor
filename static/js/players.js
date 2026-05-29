@@ -63,6 +63,10 @@ async function loadPlayerList() {
   } catch(e) {}
 }
 
+async function copyPlayerName() {
+  _copyText(playerDetailName, document);
+}
+
 function formatDuration(sec) {
   if (!sec || sec < 60) return Math.round(sec) + '秒';
   if (sec < 3600) return Math.round(sec / 60) + '分';
@@ -117,7 +121,8 @@ async function loadPlayerDetail(name) {
 
   document.getElementById('pdAvatar').src = p.anon_count ? '' : avatarUrl(displayUuid, p.name);
   document.getElementById('pdName').textContent = p.anon_count > 0 ? `Anonymous Player x${p.anon_count}` : p.name;
-  document.getElementById('pdName2').textContent = p.anon_count > 0 ? `Anonymous Player x${p.anon_count}` : p.name;
+  const displayName = p.anon_count > 0 ? `Anonymous Player x${p.anon_count}` : p.name;
+  document.getElementById('pdName2').innerHTML = `${esc(displayName)} <span class="copy-btn" onclick="copyPlayerName()" title="复制名称" style="cursor:pointer;"><svg class="svg-icon sm copy-icon" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2 2 0 0 1 3 15V5c0-1.1.9-2 2-2h10c.75 0 1.158.385 1.5 1"/></g></svg><svg class="svg-icon sm check-icon" viewBox="0 0 24 24" style="display:none;"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
   document.getElementById('pdUuid').textContent = displayUuid;
   document.getElementById('pdOnline').innerHTML = p.online ? '<span style="color:var(--online);">● 在线</span>' : '<span style="color:var(--muted);">离线</span>';
   document.getElementById('pdTotalTime').textContent = formatDuration(p.total_online_seconds);

@@ -218,6 +218,13 @@ body {
   cursor: pointer; font-size: 0.9rem; transition: background 0.15s;
 }
 .back-btn:hover { background: var(--hover); }
+.copy-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; padding: 2px; border-radius: 4px;
+  transition: color 0.15s, background 0.15s; vertical-align: middle;
+}
+.copy-btn:hover { color: var(--accent); background: var(--hover); }
 .detail-title { font-size: 1.3rem; font-weight: 700; }
 
 .detail-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }

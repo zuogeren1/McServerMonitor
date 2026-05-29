@@ -137,6 +137,10 @@
         <img id="pdAvatar" src="" alt="" style="width:40px;height:40px;border-radius:4px;" onerror="this.style.display='none'">
         <div>
           <span class="detail-title" id="pdName">玩家详情</span>
+          <span class="copy-btn" onclick="copyPlayerName()" title="复制名称" style="margin-left:0.35rem;cursor:pointer;">
+            <svg class="svg-icon sm copy-icon" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2 2 0 0 1 3 15V5c0-1.1.9-2 2-2h10c.75 0 1.158.385 1.5 1"/></g></svg>
+            <svg class="svg-icon sm check-icon" viewBox="0 0 24 24" style="display:none;"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
           <span class="status-tag" id="pdStatusTag" style="margin-left:0.5rem;">离线</span>
         </div>
       </div>
@@ -144,7 +148,7 @@
     <div class="detail-panels" style="margin-bottom:1rem;">
       <div class="panel">
         <h4><svg class="svg-icon sm"><use href="#icon-info"/></svg> 基本信息</h4>
-        <div class="info-row"><span class="lbl">名称</span><span class="val" id="pdName2">--</span></div>
+        <div class="info-row"><span class="lbl">名称</span><span class="val" id="pdName2" style="display:flex;align-items:center;gap:0.3rem;">--</span></div>
         <div class="info-row"><span class="lbl">UUID</span><span class="val" id="pdUuid" style="font-family:'Consolas','Courier New',monospace;font-size:0.75rem;">--</span></div>
         <div class="info-row"><span class="lbl">状态</span><span class="val" id="pdOnline">--</span></div>
         <div class="info-row"><span class="lbl">总在线时长</span><span class="val" id="pdTotalTime">--</span></div>
@@ -257,7 +261,7 @@
       </button>
       <div>
         <span class="detail-title" id="detailTitle">服务器详情</span>
-        <div class="card-addr" id="detailAddr" style="margin-top:2px;"></div>
+        <div class="card-addr" id="detailAddr" style="margin-top:2px;display:flex;align-items:center;gap:0.3rem;"></div>
       </div>
       <span class="status-tag" id="detailStatusTag" style="margin-left:auto;">离线</span>
       <button class="btn btn-sm btn-outline" id="playerNotifBtn" onclick="togglePlayerNotif(detailServerId)" title="仅在玩家数量小于等于12位时进行通知" style="margin-left:0.5rem;">玩家通知: 关</button>
