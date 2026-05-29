@@ -225,6 +225,9 @@ body {
   transition: color 0.15s, background 0.15s; vertical-align: middle;
 }
 .copy-btn:hover { color: var(--accent); background: var(--hover); }
+.rs-server-name, .rs-server-time { cursor: pointer; }
+.rs-server-name { color: var(--accent); }
+.rs-server-name:hover, .rs-server-time:hover { opacity: 0.8; }
 .detail-title { font-size: 1.3rem; font-weight: 700; }
 
 .detail-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }

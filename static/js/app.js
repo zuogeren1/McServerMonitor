@@ -10,6 +10,8 @@ let currentPage = 'home';
 let currentStatuses = [];
 let detailServerId = null;
 let detailServerAddr = '';
+let _pageHistory = [];
+let _skipHistoryPush = false;
 let prevPage = 'home';
 let historyChart = null;
 let historyData = [];
@@ -107,8 +109,13 @@ function _requireLogin(page) {
 let _pendingLoginPage = null;
 
 function switchPageDirect(page) {
+  if (['detail', 'player-detail'].includes(page) && !_skipHistoryPush) {
+    _pageHistory.push({ page: currentPage, detailServerId: detailServerId });
+  } else if (!['detail', 'player-detail'].includes(page)) {
+    _pageHistory = [];
+    prevPage = page;
+  }
   currentPage = page;
-  if (!['detail', 'player-detail'].includes(page)) prevPage = page;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
@@ -116,8 +123,12 @@ function switchPageDirect(page) {
   document.getElementById(`page-${page}`).classList.add('active');
   if (page === 'detail' && detailServerId) {
     loadDetailPage(detailServerId);
+    loadHistoryChart(detailServerId, '15m');
+    document.getElementById('customRangeRow').style.display = 'none';
   } else if (page === 'players') {
     loadPlayerList();
+  } else if (page === 'player-detail' && typeof loadPlayerDetail === 'function' && playerDetailName) {
+    loadPlayerDetail(playerDetailName);
   } else {
     renderAll();
   }
@@ -190,25 +201,50 @@ function renderServers() {
 }
 
 // ---- Detail Page ----
-function openDetail(sid) {
+function openServerByName(name) {
+  const s = currentStatuses.find(x => x.server_name === name);
+  if (s) openDetail(s.server_id);
+}
+
+function openServerByNameRange(name, startTs, endTs) {
+  const s = currentStatuses.find(x => x.server_name === name);
+  if (s) openDetail(s.server_id, 'custom', startTs, endTs);
+}
+
+function openDetail(sid, range, startTs, endTs) {
   detailServerId = sid;
-  prevPage = currentPage;
-  currentPage = 'detail';
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-detail').classList.add('active');
   pinnedPoint = null;
   document.getElementById('pinnedSection').classList.remove('visible');
   if (typeof _startRealtimeInterval === 'function') _startRealtimeInterval();
+  switchPageDirect('detail');
   loadDetailPage(sid);
-  loadHistoryChart(sid, '15m');
+  if (range === 'custom' && startTs && endTs) {
+    const sDate = new Date(startTs * 1000);
+    const eDate = new Date(endTs * 1000);
+    document.getElementById('rangeStartDate').value = sDate.toISOString().slice(0, 10);
+    document.getElementById('rangeStartTime').value = sDate.toTimeString().slice(0, 5);
+    document.getElementById('rangeEndDate').value = eDate.toISOString().slice(0, 10);
+    document.getElementById('rangeEndTime').value = eDate.toTimeString().slice(0, 5);
+    document.getElementById('customRangeRow').style.display = 'flex';
+    loadHistoryChart(sid, range);
+  } else {
+    loadHistoryChart(sid, '15m');
+  }
 }
 
 function goBackFromDetail() {
-  detailServerId = null;
   if (historyChart) { historyChart.destroy(); historyChart = null; }
   if (typeof _stopRealtimeInterval === 'function') _stopRealtimeInterval();
-  switchPage(prevPage || 'home');
+  const prev = _pageHistory.pop();
+  _skipHistoryPush = true;
+  if (prev) {
+    detailServerId = prev.detailServerId || null;
+    switchPage(prev.page || 'home');
+  } else {
+    detailServerId = null;
+    switchPage('home');
+  }
+  _skipHistoryPush = false;
 }
 
 function destroyChart() {

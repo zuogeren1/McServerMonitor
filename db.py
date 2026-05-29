@@ -158,6 +158,9 @@ def init_db(db_path=None):
 
     _migrate_players(db)
 
+    # 补齐历史数据中为 NULL 的 server_id
+    db.execute("UPDATE player_sessions SET server_id = (SELECT id FROM servers WHERE servers.name = player_sessions.server_name LIMIT 1) WHERE server_id IS NULL")
+
     global check_interval
     row = db.execute("SELECT value FROM config WHERE key='check_interval'").fetchone()
     if row:
@@ -571,7 +574,7 @@ def get_player_detail(name: str):
     for s in sorted(all_sessions, key=lambda x: x['login_time'], reverse=True):
         if s['server_name'] not in seen:
             seen.add(s['server_name'])
-            recent_servers.append({'server_name': s['server_name'], 'login_time': s['login_time'], 'logout_time': s['logout_time']})
+            recent_servers.append({'server_id': s['server_id'], 'server_name': s['server_name'], 'login_time': s['login_time'], 'logout_time': s['logout_time']})
 
     current_duration = (time.time() - info['login_time']) if is_online else 0
 

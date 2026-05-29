@@ -97,17 +97,21 @@ function openPlayerDetail(name) {
   playerDetailName = name;
   pdCachedUuid = '';  // 新访问重置，触发重新查询
   playerDetailPrevPage = currentPage !== 'player-detail' ? currentPage : playerDetailPrevPage;
-  currentPage = 'player-detail';
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-player-detail').classList.add('active');
-  loadPlayerDetail(name);
+  switchPageDirect('player-detail');
 }
 
 function goBackFromPlayerDetail() {
   playerDetailName = null;
   if (pdHourlyChart) { pdHourlyChart.destroy(); pdHourlyChart = null; }
-  switchPage(playerDetailPrevPage || 'players');
+  const prev = _pageHistory.pop();
+  _skipHistoryPush = true;
+  if (prev) {
+    detailServerId = prev.detailServerId || null;
+    switchPage(prev.page || 'players');
+  } else {
+    switchPage('players');
+  }
+  _skipHistoryPush = false;
 }
 
 async function loadPlayerDetail(name) {
@@ -151,9 +155,10 @@ async function loadPlayerDetail(name) {
     rsHtml = servers.map((s, i) => {
       const login = new Date(s.login_time * 1000).toLocaleString('zh-CN');
       const logout = s.logout_time ? new Date(s.logout_time * 1000).toLocaleString('zh-CN') : '至今';
+      const endTs = s.logout_time || Math.floor(Date.now() / 1000);
       return `<div class="info-row">
-        <span class="lbl">${esc(s.server_name)}</span>
-        <span class="val" style="font-size:0.75rem;color:var(--muted);">${login} ~ ${logout}</span>
+        <span class="lbl rs-server-name" data-name="${esc(s.server_name)}" onclick="openServerByName('${esc(s.server_name)}')" title="查看服务器详情">${esc(s.server_name)}</span>
+        <span class="val rs-server-time" data-name="${esc(s.server_name)}" data-start="${s.login_time}" data-end="${endTs}" onclick="openServerByNameRange('${esc(s.server_name)}',${s.login_time},${endTs})" title="查看此时段在线历史">${login} ~ ${logout}</span>
       </div>`;
     }).join('');
   }
