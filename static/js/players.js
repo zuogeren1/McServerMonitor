@@ -87,6 +87,28 @@ document.querySelectorAll('#page-players .btn-outline').forEach(btn => {
   });
 });
 
+function _refreshPlayerDetailState(statuses) {
+  if (!playerDetailName) return;
+  let found = null;
+  for (const s of statuses) {
+    const list = s.players && s.players.list ? s.players.list : [];
+    const match = list.find(p => (p.name || '').trim() === playerDetailName);
+    if (match) { found = { server_name: s.server_name, online: s.online }; break; }
+  }
+  const tag = document.getElementById('pdStatusTag');
+  const csEl = document.getElementById('pdCurrentServer');
+  if (found) {
+    tag.textContent = '在线';
+    tag.className = 'status-tag online';
+    const csHtml = `<div style="color:var(--online);font-size:0.85rem;">当前在线于: <strong>${esc(found.server_name)}</strong></div>`;
+    _setHtmlSafe(csEl, csHtml);
+  } else {
+    tag.textContent = '离线';
+    tag.className = 'status-tag offline';
+    _setHtmlSafe(csEl, '');
+  }
+}
+
 // ---- Player Detail ----
 let playerDetailName = null;
 let playerDetailPrevPage = 'players';
@@ -155,10 +177,10 @@ async function loadPlayerDetail(name) {
     rsHtml = servers.map((s, i) => {
       const login = new Date(s.login_time * 1000).toLocaleString('zh-CN');
       const logout = s.logout_time ? new Date(s.logout_time * 1000).toLocaleString('zh-CN') : '至今';
-      const endTs = s.logout_time || Math.floor(Date.now() / 1000);
+      const logoutTs = s.logout_time || 0;
       return `<div class="info-row">
         <span class="lbl rs-server-name" data-name="${esc(s.server_name)}" onclick="openServerByName('${esc(s.server_name)}')" title="查看服务器详情">${esc(s.server_name)}</span>
-        <span class="val rs-server-time" data-name="${esc(s.server_name)}" data-start="${s.login_time}" data-end="${endTs}" onclick="openServerByNameRange('${esc(s.server_name)}',${s.login_time},${endTs})" title="查看此时段在线历史">${login} ~ ${logout}</span>
+        <span class="val rs-server-time" data-name="${esc(s.server_name)}" data-start="${s.login_time}" data-end="${logoutTs}" onclick="openServerByNameRange('${esc(s.server_name)}',${s.login_time},${logoutTs})" title="查看此时段在线历史">${login} ~ ${logout}</span>
       </div>`;
     }).join('');
   }

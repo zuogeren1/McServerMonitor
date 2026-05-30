@@ -488,6 +488,8 @@ def track_players(server_id: int, server_name: str, player_list: list[dict]):
 
     ended = []
     for name, info in list(_active_players.items()):
+        if info['server_id'] != server_id:
+            continue
         if name not in current_keys:
             info['miss_count'] += 1
             if info['miss_count'] >= _MISS_THRESHOLD:

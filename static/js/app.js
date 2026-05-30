@@ -208,7 +208,7 @@ function openServerByName(name) {
 
 function openServerByNameRange(name, startTs, endTs) {
   const s = currentStatuses.find(x => x.server_name === name);
-  if (s) openDetail(s.server_id, 'custom', startTs, endTs);
+  if (s) openDetail(s.server_id, 'custom', startTs, endTs || Math.floor(Date.now() / 1000));
 }
 
 function openDetail(sid, range, startTs, endTs) {
@@ -798,7 +798,7 @@ socket.on('status_update', (data) => {
   updateFavicon(data);
   if (currentPage === 'detail' && detailServerId) loadDetailPage(detailServerId);
   if (currentPage === 'players') loadPlayerList();
-  if (currentPage === 'player-detail' && playerDetailName) loadPlayerDetail(playerDetailName);
+  if (currentPage === 'player-detail' && playerDetailName) _refreshPlayerDetailState(data);
 });
 
 // ---- Favicon Badge ----
