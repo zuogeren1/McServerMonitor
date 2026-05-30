@@ -14,6 +14,7 @@ from db import (
     save_history, cleanup_old_history, get_history,
     parse_address, track_players, get_players, get_player_detail, delete_player,
     get_player_list_at_time, optimize_database,
+    check_residual_by_name, cleanup_residual_by_name,
 )
 from mc_query import query_one_server
 
@@ -190,12 +191,32 @@ def api_servers():
     return jsonify(get_all_servers())
 
 
+@app.route('/api/servers/check-name', methods=['GET'])
+def api_check_server_name():
+    name = request.args.get('name', '').strip()
+    if not name:
+        return jsonify(None)
+    return jsonify(check_residual_by_name(name))
+
+
+@app.route('/api/servers/cleanup', methods=['POST'])
+def api_cleanup_server():
+    if _config.get('require_login', False) and not session.get('logged_in'):
+        return jsonify({'error': 'unauthorized'}), 401
+    name = request.get_json().get('name', '').strip()
+    if not name:
+        return jsonify({'ok': False}), 400
+    cleanup_residual_by_name(name)
+    return jsonify({'ok': True})
+
+
 @app.route('/api/servers/<int:sid>', methods=['PUT', 'DELETE'])
 def api_server_detail(sid):
     if _config.get('require_login', False) and not session.get('logged_in'):
         return jsonify({'error': 'unauthorized'}), 401
     if request.method == 'DELETE':
-        delete_server(sid)
+        clean_data = request.args.get('clean_data', '0') == '1'
+        delete_server(sid, clean_data=clean_data)
         server_statuses.pop(sid, None)
         socketio.emit('status_update', list(server_statuses.values()))
         return jsonify({'ok': True})

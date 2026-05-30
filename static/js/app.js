@@ -412,23 +412,63 @@ function getBackups() {
     .map(r => r.querySelector('.bkp-addr').value.trim()).filter(v => v);
 }
 
+let _pendingServerData = null;
+
 document.getElementById('saveServer').addEventListener('click', () => {
   const name = document.getElementById('srvName').value.trim();
   const addr = document.getElementById('srvAddr').value.trim();
-  if (!name || !addr) { alert('请填写服务器名称和主地址'); return;
-  }
+  if (!name || !addr) { alert('请填写服务器名称和主地址'); return; }
 
   const srvType = document.querySelector('input[name="srvType"]:checked').value;
   const data = { name, primary_address: addr, backups: getBackups(), server_type: srvType };
   const isEdit = !!editingServerId;
+
+  if (isEdit) {
+    _doSaveServer(isEdit, data);
+    return;
+  }
+
+  fetch(`/api/servers/check-name?name=${encodeURIComponent(name)}`).then(r => r.json()).then(res => {
+    if (!res) {
+      _doSaveServer(isEdit, data);
+    } else {
+      _pendingServerData = data;
+      document.getElementById('dupNameMsg').textContent = `服务器 "${name}" 之前被删除，仍有 ${res.sessions} 条玩家在线记录残留。`;
+      document.getElementById('dupCleanData').checked = false;
+      document.getElementById('dupConfirmBtn').onclick = confirmDupName;
+      document.getElementById('dupNameOverlay').style.display = 'flex';
+    }
+  }).catch(() => {});
+});
+
+function _doSaveServer(isEdit, data) {
   const url = isEdit ? `/api/servers/${editingServerId}` : '/api/servers';
   const method = isEdit ? 'PUT' : 'POST';
-
   fetch(url, {
     method, headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data)
   }).then(r => r.json()).then(() => { resetForm(); renderAdmin(); }).catch(() => {});
-});
+}
+
+function hideDupNameDialog() {
+  document.getElementById('dupNameOverlay').style.display = 'none';
+  _pendingServerData = null;
+}
+
+function confirmDupName() {
+  const data = _pendingServerData;
+  const cleanData = document.getElementById('dupCleanData').checked;
+  _pendingServerData = null;
+  document.getElementById('dupNameOverlay').style.display = 'none';
+  if (cleanData) {
+    fetch('/api/servers/cleanup', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: data.name})
+    }).then(() => _doSaveServer(false, data)).catch(() => {});
+  } else {
+    _doSaveServer(false, data);
+  }
+}
 
 document.getElementById('cancelEdit').addEventListener('click', resetForm);
 
@@ -478,8 +518,21 @@ function editServer(sid) {
 }
 
 function deleteServer(sid) {
-  if (!confirm('确定删除此服务器?')) return;
-  fetch(`/api/servers/${sid}`, {method: 'DELETE'}).then(() => renderAdmin()).catch(() => {});
+  const srv = currentStatuses.find(x => x.server_id === sid);
+  document.getElementById('delServerName').textContent = srv ? srv.server_name : ('ID:' + sid);
+  document.getElementById('delCleanData').checked = false;
+  document.getElementById('delConfirmBtn').onclick = () => confirmDeleteServer(sid);
+  document.getElementById('deleteConfirmOverlay').style.display = 'flex';
+}
+
+function hideDeleteConfirm() {
+  document.getElementById('deleteConfirmOverlay').style.display = 'none';
+}
+
+function confirmDeleteServer(sid) {
+  const cleanData = document.getElementById('delCleanData').checked;
+  hideDeleteConfirm();
+  fetch(`/api/servers/${sid}?clean_data=${cleanData ? '1' : '0'}`, {method: 'DELETE'}).then(() => renderAdmin()).catch(() => {});
 }
 
 // ---- Login Modal ----

@@ -356,6 +356,44 @@
   </div>
 </div>
 
+<!-- Delete Server Confirm Modal -->
+<div class="login-overlay" id="deleteConfirmOverlay" style="display:none;">
+  <div class="login-card">
+    <h3 style="margin-bottom:0.5rem;">删除服务器</h3>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.75rem;">确定删除服务器 "<span id="delServerName">--</span>"？</p>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;letter-spacing:0;">
+        <input type="checkbox" id="delCleanData" style="width:auto;">
+        同时删除该服务器关联的玩家在线记录等数据
+      </label>
+    </div>
+    <div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.75rem;">不勾选则仅删除服务器本身，保留历史数据。</div>
+    <div style="display:flex;gap:0.5rem;">
+      <button class="btn btn-danger" id="delConfirmBtn">删除</button>
+      <button class="btn btn-outline" onclick="hideDeleteConfirm()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Duplicate Name Modal -->
+<div class="login-overlay" id="dupNameOverlay" style="display:none;">
+  <div class="login-card">
+    <h3 style="margin-bottom:0.5rem;">检测到残留数据</h3>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.75rem;" id="dupNameMsg"></p>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;letter-spacing:0;">
+        <input type="checkbox" id="dupCleanData" style="width:auto;">
+        删除这些残留数据（不影响玩家在线时长）
+      </label>
+    </div>
+    <div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.75rem;">不勾选则保留残留数据，仅创建新服务器。</div>
+    <div style="display:flex;gap:0.5rem;">
+      <button class="btn btn-primary" id="dupConfirmBtn">确认</button>
+      <button class="btn btn-outline" onclick="hideDupNameDialog()">取消</button>
+    </div>
+  </div>
+</div>
+
 <!-- Login Modal -->
 <div class="login-overlay" id="loginOverlay" style="display:none;">
   <div class="login-card">

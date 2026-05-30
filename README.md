@@ -124,7 +124,9 @@ python app.py                   # http://localhost:9000
 | GET | `/api/servers` | 获取服务器列表 |
 | POST | `/api/servers` | 添加服务器 |
 | PUT | `/api/servers/<id>` | 更新服务器 |
-| DELETE | `/api/servers/<id>` | 删除服务器 |
+| DELETE | `/api/servers/<id>` | 删除服务器（`?clean_data=1` 同时删除关联的玩家在线记录） |
+| GET | `/api/servers/check-name?name=` | 检查是否存在同名已删除服务器的残留数据 |
+| POST | `/api/servers/cleanup` | 清除指定名称的残留玩家在线记录（`{"name":"..."}`） |
 
 ### 历史数据
 

@@ -158,8 +158,8 @@ def init_db(db_path=None):
 
     _migrate_players(db)
 
-    # 补齐历史数据中为 NULL 的 server_id
     db.execute("UPDATE player_sessions SET server_id = (SELECT id FROM servers WHERE servers.name = player_sessions.server_name LIMIT 1) WHERE server_id IS NULL")
+    db.execute("DELETE FROM player_sessions WHERE server_name NOT IN (SELECT name FROM servers)")
 
     global check_interval
     row = db.execute("SELECT value FROM config WHERE key='check_interval'").fetchone()
@@ -209,12 +209,32 @@ def add_server(name, primary_host, primary_port, backups, server_type='java'):
     return sid
 
 
-def delete_server(server_id):
+def delete_server(server_id, clean_data=False):
     with _get_conn(commit=True) as db:
         db.execute('PRAGMA foreign_keys = ON')
+        name_row = db.execute("SELECT name FROM servers WHERE id=?", (server_id,)).fetchone()
         db.execute("DELETE FROM history WHERE server_id=?", (server_id,))
         db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
         db.execute("DELETE FROM servers WHERE id=?", (server_id,))
+        if clean_data and name_row:
+            db.execute("DELETE FROM player_sessions WHERE server_name=?", (name_row['name'],))
+
+
+def check_residual_by_name(name):
+    with _get_conn() as db:
+        existing = db.execute("SELECT id FROM servers WHERE name=?", (name,)).fetchone()
+        if existing:
+            return None
+        row = db.execute("SELECT COUNT(*) as cnt FROM player_sessions WHERE server_name=?", (name,)).fetchone()
+        if row['cnt'] == 0:
+            return None
+        return {'name': name, 'sessions': row['cnt']}
+
+
+def cleanup_residual_by_name(name):
+    with _get_conn(commit=True) as db:
+        db.execute('PRAGMA foreign_keys = ON')
+        db.execute("DELETE FROM player_sessions WHERE server_name=?", (name,))
 
 
 def update_server(server_id, name, primary_host, primary_port, backups, server_type='java'):
