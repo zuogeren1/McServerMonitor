@@ -788,8 +788,7 @@ socket.on('status_update', (data) => {
   if (isFirstLoad) {
     for (const s of data) {
       if (!s.online) {
-        _offlineCounts[s.server_id] = _offlineThreshold;
-        _offlineNotified[s.server_id] = true;
+        _offlineCounts[s.server_id] = _offlineThreshold + 1;
       }
     }
   }
