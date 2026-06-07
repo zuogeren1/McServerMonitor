@@ -741,11 +741,13 @@ function _notify(title, body) {
   try { new Notification(title, { body }); } catch(e) {}
 }
 
-let _offlineCounts = {};       // server_id -> 连续离线次数
-let _offlineNotified = {};     // server_id -> 是否已发过离线通知
-let _offlineThreshold = 2;     // 由 config 更新
+let _offlineCounts = {};          // server_id -> 连续离线次数
+let _offlineNotified = {};        // server_id -> 是否已发过离线通知
+let _skipNotificationCheck = false;
+let _offlineThreshold = 2;        // 由 config 更新
 
 function checkNotifications(newData) {
+  if (_skipNotificationCheck) { _skipNotificationCheck = false; return; }
   if (prevStatuses.length === 0) return;
   for (const s of newData) {
     const prev = prevStatuses.find(x => x.server_id === s.server_id);
@@ -791,6 +793,7 @@ socket.on('status_update', (data) => {
         _offlineCounts[s.server_id] = _offlineThreshold + 1;
       }
     }
+    _skipNotificationCheck = true;
   }
   currentStatuses = data;
   renderAll();
