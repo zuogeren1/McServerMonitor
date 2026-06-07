@@ -190,6 +190,13 @@
         <label style="display:flex;align-items:center;justify-content:space-between;">副地址 (备选)<button class="btn btn-outline btn-sm" id="addBackupBtn">+ 添加</button></label>
         <div id="backupList"></div>
       </div>
+      <div class="form-group">
+        <label>RCON 地址 (可选，用于获取完整玩家列表)</label>
+        <div style="display:flex;gap:0.4rem;">
+          <input type="text" id="srvRconHost" placeholder="host:port，留空不启用" style="flex:2;">
+          <input type="password" id="srvRconPassword" placeholder="RCON 密码" style="flex:1;">
+        </div>
+      </div>
       <div style="display:flex;gap:0.5rem;margin-top:1rem;">
         <button class="btn btn-primary" id="saveServer"><svg class="svg-icon sm"><use href="#icon-check"/></svg> 保存服务器</button>
         <button class="btn btn-outline" id="cancelEdit" style="display:none;">取消编辑</button>

@@ -165,7 +165,10 @@ def _parse_server_form(data):
     else:
         primary_host = data.get('primary_host', '127.0.0.1')
         primary_port = int(data.get('primary_port', 25565))
-    return data['name'], primary_host, primary_port, backups, data.get('server_type', 'java')
+    rcon_host = data.get('rcon_host', '').strip()
+    rcon_port = int(data.get('rcon_port', 0)) if data.get('rcon_port') else None
+    rcon_password = data.get('rcon_password', '')
+    return data['name'], primary_host, primary_port, backups, data.get('server_type', 'java'), rcon_host, rcon_port, rcon_password
 
 
 def _refresh_server_status(sid):

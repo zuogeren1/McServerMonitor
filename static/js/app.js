@@ -298,6 +298,8 @@ function loadDetailPage(sid) {
   if (!s) return;
 
   updatePlayerNotifBtn(sid);
+  const pnBtn = document.getElementById('playerNotifBtn');
+  if (pnBtn) pnBtn.title = s.has_rcon ? 'RCON 已启用，不受玩家数量限制' : '仅在玩家数量小于等于12位时进行通知';
   document.getElementById('detailTitle').innerHTML = esc(s.server_name) + ' <span class="type-badge type-' + (s.server_type || 'java') + '">' + (s.server_type === 'bedrock' ? '基岩' : 'Java') + '</span>';
   const addr = fmtAddr(s.active_host, s.active_port);
   detailServerAddr = addr;
@@ -420,7 +422,15 @@ document.getElementById('saveServer').addEventListener('click', () => {
   if (!name || !addr) { alert('请填写服务器名称和主地址'); return; }
 
   const srvType = document.querySelector('input[name="srvType"]:checked').value;
-  const data = { name, primary_address: addr, backups: getBackups(), server_type: srvType };
+  const rconAddr = document.getElementById('srvRconHost').value.trim();
+  let rcon_host = '', rcon_port = null;
+  if (rconAddr) {
+    const parts = rconAddr.split(':');
+    rcon_host = parts[0];
+    rcon_port = parts.length > 1 ? parseInt(parts[1]) : 25575;
+  }
+  const rcon_password = document.getElementById('srvRconPassword').value;
+  const data = { name, primary_address: addr, backups: getBackups(), server_type: srvType, rcon_host, rcon_port, rcon_password };
   const isEdit = !!editingServerId;
 
   if (isEdit) {
@@ -478,6 +488,8 @@ function resetForm() {
   document.getElementById('srvName').value = '';
   document.getElementById('srvAddr').value = '';
   document.getElementById('backupList').innerHTML = '';
+  document.getElementById('srvRconHost').value = '';
+  document.getElementById('srvRconPassword').value = '';
   const javaRadio = document.querySelector('input[name="srvType"][value="java"]');
   if (javaRadio) javaRadio.checked = true;
   document.getElementById('formTitle').innerHTML = '<svg class="svg-icon"><use href="#icon-plus"/></svg> 添加服务器';
@@ -498,6 +510,11 @@ function editServer(sid) {
     document.getElementById('formTitle').innerHTML = '<svg class="svg-icon"><use href="#icon-edit"/></svg> 编辑服务器';
     document.getElementById('cancelEdit').style.display = '';
     document.getElementById('saveServer').innerHTML = '<svg class="svg-icon sm"><use href="#icon-check"/></svg> 更新服务器';
+
+    const rconHost = s.rcon_host || '';
+    const rconPort = s.rcon_port || '';
+    document.getElementById('srvRconHost').value = rconHost ? (rconPort ? rconHost + ':' + rconPort : rconHost) : '';
+    document.getElementById('srvRconPassword').value = s.rcon_password || '';
 
     const container = document.getElementById('backupList');
     container.innerHTML = '';
@@ -629,7 +646,7 @@ document.getElementById('saveSettings').addEventListener('click', () => {
 let adminPlayerList = [];
 
 function renderPlayerManage() {
-  _renderPlayerManageList();
+  _renderPlayerManageList(document.getElementById('playerSearch').value);
 }
 
 function _renderPlayerManageList(filter) {
@@ -672,8 +689,8 @@ function _doRenderPlayerManageList(filter) {
 function deleteAdminPlayer(name) {
   if (!confirm(`确定删除玩家 "${name}" 及其所有数据?`)) return;
   fetch(`/api/players/${encodeURIComponent(name)}`, {method: 'DELETE'}).then(() => {
-    adminPlayerList = [];
-    _renderPlayerManageList(document.getElementById('playerSearch').value);
+    adminPlayerList = adminPlayerList.filter(p => p.name !== name);
+    _doRenderPlayerManageList(document.getElementById('playerSearch').value);
   }).catch(() => {});
 }
 
@@ -773,7 +790,7 @@ function checkNotifications(newData) {
     }
 
     // 玩家加入/离开通知（按服务器开关控制，仅采样完整时生效）
-    if (playerNotifServers[s.server_id] && s.online && prev.online && s.players.online <= 12) {
+    if (playerNotifServers[s.server_id] && s.online && prev.online && (s.has_rcon || s.players.online <= 12)) {
       const prevNames = new Set((prev.players.list || []).map(p => p.name));
       const currNames = new Set((s.players.list || []).map(p => p.name));
       for (const n of currNames) { if (!prevNames.has(n) && !n.includes(' ')) _notify(s.server_name, `${n} 加入了`); }

@@ -1,6 +1,13 @@
+import re
+import socket
+import struct
+import time
 import eventlet
 from html import escape as html_escape
 from mcstatus import JavaServer, BedrockServer
+
+_rcon_pool = {}        # key=(host,port,password) -> sock (persistent connection)
+_rcon_pool_lock = eventlet.semaphore.Semaphore(1)
 
 _SECTION_COLORS = {
     '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
@@ -116,6 +123,80 @@ def try_single_address(host: str, port: int | None, timeout: float = 1.0, server
         return None
 
 
+def _rcon_send(sock, req_id, cmd_type, payload):
+    payload_bytes = payload.encode('utf-8') + b'\x00'
+    length = 4 + 4 + len(payload_bytes) + 1
+    packet = struct.pack('<iii', length, req_id, cmd_type) + payload_bytes + b'\x00'
+    sock.sendall(packet)
+
+
+def _rcon_recv(sock):
+    raw = b''
+    while len(raw) < 4:
+        chunk = sock.recv(4 - len(raw))
+        if not chunk:
+            return None, b''
+        raw += chunk
+    length = struct.unpack('<i', raw[:4])[0]
+    while len(raw) < 4 + length:
+        chunk = sock.recv(4 + length - len(raw))
+        if not chunk:
+            return None, raw
+        raw += chunk
+    req_id = struct.unpack('<i', raw[4:8])[0]
+    payload_end = raw.find(b'\x00\x00', 12)
+    payload = raw[12:payload_end].decode('utf-8', errors='replace') if payload_end != -1 else ''
+    return req_id, payload
+
+
+def _rcon_get_connection(host: str, port: int, password: str, timeout: float = 3.0):
+    key = (host, port, password)
+    with _rcon_pool_lock:
+        sock = _rcon_pool.get(key)
+        if sock:
+            try:
+                _rcon_send(sock, 99, 2, 'list')
+                req_id, _ = _rcon_recv(sock)
+                if req_id == 99:
+                    return sock
+            except Exception:
+                pass
+            try:
+                sock.close()
+            except Exception:
+                pass
+            del _rcon_pool[key]
+        sock = socket.create_connection((host, port), timeout=timeout)
+        sock.settimeout(timeout)
+        _rcon_send(sock, 1, 3, password)
+        req_id, resp = _rcon_recv(sock)
+        if req_id != 1:
+            sock.close()
+            return None
+        _rcon_pool[key] = sock
+        return sock
+
+
+def query_rcon_players(host: str, port: int, password: str, timeout: float = 3.0) -> list[str] | None:
+    try:
+        sock = _rcon_get_connection(host, port, password, timeout)
+        if not sock:
+            return None
+        _rcon_send(sock, 2, 2, 'list')
+        req_id, resp = _rcon_recv(sock)
+        if req_id != 2 or not resp:
+            _rcon_pool.pop((host, port, password), None)
+            try: sock.close()
+            except Exception: pass
+            return None
+        m = re.search(r'(?:online|在线上?)[:：]\s*(.+)', resp)
+        if not m:
+            return []
+        return [n.strip() for n in m.group(1).split(',') if n.strip()]
+    except Exception:
+        return None
+
+
 def query_one_server(server_info: dict) -> dict:
     server_type = server_info.get('server_type', 'java')
     addresses = [(server_info['primary_host'], server_info['primary_port'], 'primary')]
@@ -160,6 +241,17 @@ def query_one_server(server_info: dict) -> dict:
             'map_name': '', 'gamemode': '', 'brand': '',
         }
 
+    has_rcon = False
+    rcon_host = (server_info.get('rcon_host') or '').strip()
+    rcon_password = (server_info.get('rcon_password') or '').strip()
+    if rcon_host and rcon_password:
+        rcon_port = int(server_info.get('rcon_port', 25575) or 25575)
+        rcon_names = query_rcon_players(rcon_host, rcon_port, rcon_password)
+        if rcon_names is not None:
+            has_rcon = True
+            active_status['players']['online'] = len(rcon_names)
+            active_status['players']['list'] = [{'name': n, 'id': None} for n in rcon_names]
+
     return {
         'online': True, 'server_id': server_info['id'], 'server_name': server_info['name'],
         'server_type': server_type,
@@ -172,4 +264,5 @@ def query_one_server(server_info: dict) -> dict:
         'map_name': active_status.get('map_name', ''),
         'gamemode': active_status.get('gamemode', ''),
         'brand': active_status.get('brand', ''),
+        'has_rcon': has_rcon,
     }

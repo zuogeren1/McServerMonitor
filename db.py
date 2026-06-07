@@ -133,6 +133,11 @@ def init_db(db_path=None):
         db.execute("ALTER TABLE servers ADD COLUMN server_type TEXT NOT NULL DEFAULT 'java'")
     except sqlite3.OperationalError:
         pass
+    for col, col_type in [('rcon_host', 'TEXT'), ('rcon_port', 'INTEGER'), ('rcon_password', 'TEXT')]:
+        try:
+            db.execute(f"ALTER TABLE servers ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass
     db.execute('''CREATE TABLE IF NOT EXISTS backup_addresses (
         id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL,
         host TEXT NOT NULL, port INTEGER, priority INTEGER NOT NULL DEFAULT 0,
@@ -194,15 +199,19 @@ def get_all_servers():
                 'id': s['id'], 'name': s['name'],
                 'primary_host': s['primary_host'], 'primary_port': s['primary_port'],
                 'server_type': s['server_type'] if 'server_type' in s.keys() else 'java',
+                'rcon_host': s['rcon_host'] if 'rcon_host' in s.keys() else '',
+                'rcon_port': s['rcon_port'] if 'rcon_port' in s.keys() else None,
+                'rcon_password': s['rcon_password'] if 'rcon_password' in s.keys() else '',
                 'backups': [{'id': b['id'], 'host': b['host'], 'port': b['port'], 'priority': b['priority']} for b in backups],
             })
     return result
 
 
-def add_server(name, primary_host, primary_port, backups, server_type='java'):
+def add_server(name, primary_host, primary_port, backups, server_type='java', rcon_host='', rcon_port=None, rcon_password=''):
     with _get_conn(commit=True) as db:
         db.execute('PRAGMA foreign_keys = ON')
-        cur = db.execute("INSERT INTO servers (name, primary_host, primary_port, server_type) VALUES (?, ?, ?, ?)", (name, primary_host, primary_port, server_type))
+        cur = db.execute("INSERT INTO servers (name, primary_host, primary_port, server_type, rcon_host, rcon_port, rcon_password) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                         (name, primary_host, primary_port, server_type, rcon_host, rcon_port, rcon_password))
         sid = cur.lastrowid
         for i, b in enumerate(backups):
             db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (sid, b['host'], b['port'], i))
@@ -237,10 +246,11 @@ def cleanup_residual_by_name(name):
         db.execute("DELETE FROM player_sessions WHERE server_name=?", (name,))
 
 
-def update_server(server_id, name, primary_host, primary_port, backups, server_type='java'):
+def update_server(server_id, name, primary_host, primary_port, backups, server_type='java', rcon_host='', rcon_port=None, rcon_password=''):
     with _get_conn(commit=True) as db:
         db.execute('PRAGMA foreign_keys = ON')
-        db.execute("UPDATE servers SET name=?, primary_host=?, primary_port=?, server_type=? WHERE id=?", (name, primary_host, primary_port, server_type, server_id))
+        db.execute("UPDATE servers SET name=?, primary_host=?, primary_port=?, server_type=?, rcon_host=?, rcon_port=?, rcon_password=? WHERE id=?",
+                   (name, primary_host, primary_port, server_type, rcon_host, rcon_port, rcon_password, server_id))
         db.execute("DELETE FROM backup_addresses WHERE server_id=?", (server_id,))
         for i, b in enumerate(backups):
             db.execute("INSERT INTO backup_addresses (server_id, host, port, priority) VALUES (?, ?, ?, ?)", (server_id, b['host'], b['port'], i))
