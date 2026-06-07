@@ -1,4 +1,5 @@
 import eventlet
+
 eventlet.monkey_patch()
 
 import json
@@ -10,62 +11,76 @@ from flask import Flask, render_template, jsonify, request, session
 from flask_socketio import SocketIO, emit
 
 from db import (
-    init_db, get_all_servers, add_server, delete_server, update_server, get_server_rcon_password,
-    save_history, cleanup_old_history, get_history,
-    parse_address, track_players, get_players, get_player_detail, delete_player,
-    get_player_list_at_time, optimize_database,
-    check_residual_by_name, cleanup_residual_by_name,
+    init_db,
+    get_all_servers,
+    add_server,
+    delete_server,
+    update_server,
+    get_server_rcon_password,
+    save_history,
+    cleanup_old_history,
+    get_history,
+    parse_address,
+    track_players,
+    get_players,
+    get_player_detail,
+    delete_player,
+    get_player_list_at_time,
+    optimize_database,
+    check_residual_by_name,
+    cleanup_residual_by_name,
 )
 from mc_query import query_one_server
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = secrets.token_hex(24)
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins=[])
+app.config["SECRET_KEY"] = secrets.token_hex(24)
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins=[])
 
 server_statuses: dict[int, dict] = {}
 _cleanup_counter = 0
 
 # ---- Config File ----
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 
 def load_config():
     if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     # 首次启动：生成随机凭据
     cfg = {
-        'username': 'admin',
-        'password': secrets.token_hex(6),
-        'check_interval': 5,
-        'require_login': True,
-        'host': '0.0.0.0',
-        'port': 9000,
-        'db_path': 'monitor.db',
-        'offline_threshold': 2,
+        "username": "admin",
+        "password": secrets.token_hex(6),
+        "check_interval": 5,
+        "require_login": True,
+        "host": "0.0.0.0",
+        "port": 9000,
+        "db_path": "monitor.db",
+        "offline_threshold": 2,
     }
-    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
-    print(f'[init] 已生成 config.json，密码: {cfg["password"]}')
+    print(f"[init] 已生成 config.json，密码: {cfg['password']}")
     return cfg
 
 
 def save_config(cfg):
-    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
 
 
 _config = load_config()
-check_interval = _config['check_interval']
+check_interval = _config["check_interval"]
 
 
 # ---- Auth ----
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if _config.get('require_login', False) and not session.get('logged_in'):
-            return jsonify({'error': 'unauthorized'}), 401
+        if _config.get("require_login", False) and not session.get("logged_in"):
+            return jsonify({"error": "unauthorized"}), 401
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -73,15 +88,15 @@ def login_required(f):
 def _query_single_server(server_info):
     """查询单台服务器并写入数据库（供 GreenPool 并行调用）"""
     status = query_one_server(server_info)
-    server_statuses[server_info['id']] = status
-    save_history(server_info['id'], status)
-    track_players(server_info['id'], status['server_name'], status['players']['list'])
+    server_statuses[server_info["id"]] = status
+    save_history(server_info["id"], status)
+    track_players(server_info["id"], status["server_name"], status["players"]["list"])
 
 
 def query_all_servers():
     global server_statuses
     servers = get_all_servers()
-    current_ids = {s['id'] for s in servers}
+    current_ids = {s["id"] for s in servers}
     pool = eventlet.GreenPool()
     for s in servers:
         pool.spawn(_query_single_server, s)
@@ -89,7 +104,7 @@ def query_all_servers():
     for sid in list(server_statuses.keys()):
         if sid not in current_ids:
             del server_statuses[sid]
-    socketio.emit('status_update', list(server_statuses.values()))
+    socketio.emit("status_update", list(server_statuses.values()))
 
 
 def poll_loop():
@@ -107,38 +122,43 @@ def poll_loop():
 
 # ---- Routes ----
 
-@app.route('/')
+
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@app.route('/api/status')
+@app.route("/api/status")
 def api_status():
     return jsonify(list(server_statuses.values()))
 
 
-@app.route('/api/status/<int:sid>')
+@app.route("/api/status/<int:sid>")
 def api_single_status(sid):
     s = server_statuses.get(sid)
-    return jsonify(s) if s else (jsonify({'error': 'not found'}), 404)
+    return jsonify(s) if s else (jsonify({"error": "not found"}), 404)
 
 
-@app.route('/api/config', methods=['GET'])
+@app.route("/api/config", methods=["GET"])
 def api_config():
-    return jsonify({
-        'check_interval': _config['check_interval'],
-        'need_login': _config.get('require_login', False) and not session.get('logged_in'),
-        'require_login': _config.get('require_login', False),
-        'host': _config.get('host', '0.0.0.0'),
-        'port': _config.get('port', 9000),
-        'db_path': _config.get('db_path', 'monitor.db'),
-        'offline_threshold': _config.get('offline_threshold', 2),
-    })
+    return jsonify(
+        {
+            "check_interval": _config["check_interval"],
+            "need_login": _config.get("require_login", False)
+            and not session.get("logged_in"),
+            "require_login": _config.get("require_login", False),
+            "host": _config.get("host", "0.0.0.0"),
+            "port": _config.get("port", 9000),
+            "db_path": _config.get("db_path", "monitor.db"),
+            "offline_threshold": _config.get("offline_threshold", 2),
+        }
+    )
 
 
 _login_attempts = {}
 
-@app.route('/api/login', methods=['POST'])
+
+@app.route("/api/login", methods=["POST"])
 def api_login():
     ip = request.remote_addr
     now = time.time()
@@ -149,189 +169,216 @@ def api_login():
         else:
             entry[0] += 1
             if entry[0] > 5:
-                return jsonify({'error': '尝试次数过多，请稍后再试'}), 429
+                return jsonify({"error": "尝试次数过多，请稍后再试"}), 429
     else:
         _login_attempts[ip] = [1, now]
     data = request.get_json()
-    if data.get('username') == _config['username'] and data.get('password') == _config['password']:
+    if (
+        data.get("username") == _config["username"]
+        and data.get("password") == _config["password"]
+    ):
         _login_attempts.pop(ip, None)
-        session['logged_in'] = True
-        return jsonify({'ok': True, 'username': _config['username']})
-    return jsonify({'error': '用户名或密码错误'}), 401
+        session["logged_in"] = True
+        return jsonify({"ok": True, "username": _config["username"]})
+    return jsonify({"error": "用户名或密码错误"}), 401
 
 
-@app.route('/api/logout', methods=['POST'])
+@app.route("/api/logout", methods=["POST"])
 def api_logout():
-    session.pop('logged_in', None)
-    return jsonify({'ok': True})
+    session.pop("logged_in", None)
+    return jsonify({"ok": True})
 
 
 # ---- Helpers ----
 
+
 def _parse_server_form(data):
     backups = []
-    for b_str in data.get('backups', []):
+    for b_str in data.get("backups", []):
         h, p = parse_address(b_str)
-        backups.append({'host': h, 'port': p})
-    primary_addr = data.get('primary_address', '')
+        backups.append({"host": h, "port": p})
+    primary_addr = data.get("primary_address", "")
     if primary_addr:
         primary_host, primary_port = parse_address(primary_addr)
     else:
-        primary_host = data.get('primary_host', '127.0.0.1')
-        primary_port = int(data.get('primary_port', 25565))
-    rcon_host = data.get('rcon_host', '').strip()
-    rcon_port = int(data.get('rcon_port', 0)) if data.get('rcon_port') else None
-    rcon_password = data.get('rcon_password', '')
-    return data['name'], primary_host, primary_port, backups, data.get('server_type', 'java'), rcon_host, rcon_port, rcon_password
+        primary_host = data.get("primary_host", "127.0.0.1")
+        primary_port = int(data.get("primary_port", 25565))
+    rcon_host = data.get("rcon_host", "").strip()
+    rcon_port = int(data.get("rcon_port", 0)) if data.get("rcon_port") else None
+    rcon_password = data.get("rcon_password", "")
+    return (
+        data["name"],
+        primary_host,
+        primary_port,
+        backups,
+        data.get("server_type", "java"),
+        rcon_host,
+        rcon_port,
+        rcon_password,
+    )
 
 
 def _refresh_server_status(sid):
     servers = get_all_servers()
     for info in servers:
-        if info['id'] == sid:
+        if info["id"] == sid:
             server_statuses[sid] = query_one_server(info)
             save_history(sid, server_statuses[sid])
             break
-    socketio.emit('status_update', list(server_statuses.values()))
+    socketio.emit("status_update", list(server_statuses.values()))
 
 
 # ---- Admin (需登录) ----
 
-@app.route('/api/servers', methods=['GET', 'POST'])
+
+@app.route("/api/servers", methods=["GET", "POST"])
 def api_servers():
-    if _config.get('require_login', False) and not session.get('logged_in'):
-        return jsonify({'error': 'unauthorized'}), 401
-    if request.method == 'POST':
+    if _config.get("require_login", False) and not session.get("logged_in"):
+        return jsonify({"error": "unauthorized"}), 401
+    if request.method == "POST":
         sid = add_server(*_parse_server_form(request.get_json()))
         _refresh_server_status(sid)
-        return jsonify({'id': sid}), 201
+        return jsonify({"id": sid}), 201
     return jsonify(get_all_servers())
 
 
-@app.route('/api/servers/check-name', methods=['GET'])
+@app.route("/api/servers/check-name", methods=["GET"])
 def api_check_server_name():
-    name = request.args.get('name', '').strip()
+    name = request.args.get("name", "").strip()
     if not name:
         return jsonify(None)
     return jsonify(check_residual_by_name(name))
 
 
-@app.route('/api/servers/cleanup', methods=['POST'])
+@app.route("/api/servers/cleanup", methods=["POST"])
 def api_cleanup_server():
-    if _config.get('require_login', False) and not session.get('logged_in'):
-        return jsonify({'error': 'unauthorized'}), 401
-    name = request.get_json().get('name', '').strip()
+    if _config.get("require_login", False) and not session.get("logged_in"):
+        return jsonify({"error": "unauthorized"}), 401
+    name = request.get_json().get("name", "").strip()
     if not name:
-        return jsonify({'ok': False}), 400
+        return jsonify({"ok": False}), 400
     cleanup_residual_by_name(name)
-    return jsonify({'ok': True})
+    return jsonify({"ok": True})
 
 
-@app.route('/api/servers/<int:sid>', methods=['GET', 'PUT', 'DELETE'])
+@app.route("/api/servers/<int:sid>", methods=["GET", "PUT", "DELETE"])
 def api_server_detail(sid):
-    if _config.get('require_login', False) and not session.get('logged_in'):
-        return jsonify({'error': 'unauthorized'}), 401
-    if request.method == 'GET':
+    if _config.get("require_login", False) and not session.get("logged_in"):
+        return jsonify({"error": "unauthorized"}), 401
+    if request.method == "GET":
         servers = get_all_servers()
-        s = next((x for x in servers if x['id'] == sid), None)
+        s = next((x for x in servers if x["id"] == sid), None)
         if not s:
-            return jsonify({'error': 'not found'}), 404
-        s['rcon_password'] = get_server_rcon_password(sid)
+            return jsonify({"error": "not found"}), 404
+        s["rcon_password"] = get_server_rcon_password(sid)
         return jsonify(s)
-    if request.method == 'DELETE':
-        clean_data = request.args.get('clean_data', '0') == '1'
+    if request.method == "DELETE":
+        clean_data = request.args.get("clean_data", "0") == "1"
         delete_server(sid, clean_data=clean_data)
         server_statuses.pop(sid, None)
-        socketio.emit('status_update', list(server_statuses.values()))
-        return jsonify({'ok': True})
+        socketio.emit("status_update", list(server_statuses.values()))
+        return jsonify({"ok": True})
 
     update_server(sid, *_parse_server_form(request.get_json()))
     _refresh_server_status(sid)
-    return jsonify({'ok': True})
+    return jsonify({"ok": True})
 
 
-@app.route('/api/servers/<int:sid>/history')
+@app.route("/api/servers/<int:sid>/history")
 def api_history(sid):
-    return jsonify(get_history(sid, range_str=request.args.get('range'),
-                               start=request.args.get('start'), end=request.args.get('end')))
+    return jsonify(
+        get_history(
+            sid,
+            range_str=request.args.get("range"),
+            start=request.args.get("start"),
+            end=request.args.get("end"),
+        )
+    )
 
 
-@app.route('/api/servers/<int:sid>/player-list')
+@app.route("/api/servers/<int:sid>/player-list")
 def api_player_list_at(sid):
-    ts = request.args.get('ts')
+    ts = request.args.get("ts")
     if not ts:
         return jsonify([])
     return jsonify(get_player_list_at_time(sid, float(ts)))
 
 
-@app.route('/api/admin/config', methods=['POST'])
+@app.route("/api/admin/config", methods=["POST"])
 def api_admin_config():
-    if _config.get('require_login', False) and not session.get('logged_in'):
-        return jsonify({'error': 'unauthorized'}), 401
+    if _config.get("require_login", False) and not session.get("logged_in"):
+        return jsonify({"error": "unauthorized"}), 401
     global check_interval
     data = request.get_json()
-    if 'check_interval' in data:
-        _config['check_interval'] = int(data['check_interval'])
-        check_interval = _config['check_interval']
+    if "check_interval" in data:
+        _config["check_interval"] = int(data["check_interval"])
+        check_interval = _config["check_interval"]
         import db
+
         db.check_interval = check_interval
-    if 'username' in data and 'password' in data:
-        if data['password']:
-            _config['username'] = data['username']
-            _config['password'] = data['password']
-    if 'host' in data:
-        _config['host'] = data['host']
-    if 'port' in data:
-        _config['port'] = int(data['port'])
-    if 'db_path' in data:
-        _config['db_path'] = data['db_path']
-    if 'offline_threshold' in data:
-        _config['offline_threshold'] = int(data['offline_threshold'])
+    if "username" in data and "password" in data:
+        if data["password"]:
+            _config["username"] = data["username"]
+            _config["password"] = data["password"]
+    if "host" in data:
+        _config["host"] = data["host"]
+    if "port" in data:
+        _config["port"] = int(data["port"])
+    if "db_path" in data:
+        _config["db_path"] = data["db_path"]
+    if "offline_threshold" in data:
+        _config["offline_threshold"] = int(data["offline_threshold"])
     save_config(_config)
-    return jsonify({'check_interval': check_interval})
+    return jsonify({"check_interval": check_interval})
 
 
-@app.route('/api/admin/optimize', methods=['POST'])
+@app.route("/api/admin/optimize", methods=["POST"])
 def api_optimize():
-    if _config.get('require_login', False) and not session.get('logged_in'):
-        return jsonify({'error': 'unauthorized'}), 401
+    if _config.get("require_login", False) and not session.get("logged_in"):
+        return jsonify({"error": "unauthorized"}), 401
     try:
         data = request.get_json() or {}
         backup = optimize_database(
-            aggregate=data.get('aggregate', False),
-            delete_days=int(data.get('delete_days', 0)),
+            aggregate=data.get("aggregate", False),
+            delete_days=int(data.get("delete_days", 0)),
         )
-        size_mb = os.path.getsize(_config.get('db_path', 'monitor.db')) / 1024 / 1024
-        return jsonify({'ok': True, 'backup': backup, 'size_mb': round(size_mb, 1)})
+        size_mb = os.path.getsize(_config.get("db_path", "monitor.db")) / 1024 / 1024
+        return jsonify({"ok": True, "backup": backup, "size_mb": round(size_mb, 1)})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/players')
+@app.route("/api/players")
 def api_players():
-    return jsonify(get_players(filter_online=request.args.get('filter'), sort_by=request.args.get('sort', 'name')))
+    return jsonify(
+        get_players(
+            filter_online=request.args.get("filter"),
+            sort_by=request.args.get("sort", "name"),
+        )
+    )
 
 
-@app.route('/api/players/<path:name>', methods=['GET', 'DELETE'])
+@app.route("/api/players/<path:name>", methods=["GET", "DELETE"])
 def api_player_detail(name):
-    if request.method == 'DELETE':
-        if _config.get('require_login', False) and not session.get('logged_in'):
-            return jsonify({'error': 'unauthorized'}), 401
+    if request.method == "DELETE":
+        if _config.get("require_login", False) and not session.get("logged_in"):
+            return jsonify({"error": "unauthorized"}), 401
         delete_player(name)
-        return jsonify({'ok': True})
+        return jsonify({"ok": True})
     detail = get_player_detail(name)
-    return jsonify(detail) if detail else (jsonify({'error': 'not found'}), 404)
+    return jsonify(detail) if detail else (jsonify({"error": "not found"}), 404)
 
 
 # ---- WebSocket ----
 _query_busy = False
 
-@socketio.on('connect')
+
+@socketio.on("connect")
 def on_connect():
-    emit('status_update', list(server_statuses.values()))
+    emit("status_update", list(server_statuses.values()))
 
 
-@socketio.on('request_refresh')
+@socketio.on("request_refresh")
 def on_refresh():
     global _query_busy
     if _query_busy:
@@ -343,16 +390,22 @@ def on_refresh():
         _query_busy = False
 
 
-if __name__ == '__main__':
-    ci = init_db(_config.get('db_path'))
-    _config['check_interval'] = ci
+if __name__ == "__main__":
+    ci = init_db(_config.get("db_path"))
+    _config["check_interval"] = ci
     import db
+
     db.check_interval = ci
     servers = get_all_servers()
     for s in servers:
         status = query_one_server(s)
-        server_statuses[s['id']] = status
-        save_history(s['id'], status)
-        track_players(s['id'], status['server_name'], status['players']['list'])
+        server_statuses[s["id"]] = status
+        save_history(s["id"], status)
+        track_players(s["id"], status["server_name"], status["players"]["list"])
     eventlet.spawn(poll_loop)
-    socketio.run(app, host=_config.get('host', '0.0.0.0'), port=_config.get('port', 9000), debug=False)
+    socketio.run(
+        app,
+        host=_config.get("host", "0.0.0.0"),
+        port=_config.get("port", 9000),
+        debug=False,
+    )

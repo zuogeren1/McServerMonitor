@@ -6,18 +6,34 @@ import eventlet
 from html import escape as html_escape
 from mcstatus import JavaServer, BedrockServer
 
-_rcon_pool = {}        # key=(host,port,password) -> sock (persistent connection)
+_rcon_pool = {}  # key=(host,port,password) -> sock (persistent connection)
 _rcon_pool_lock = eventlet.semaphore.Semaphore(1)
 
 _SECTION_COLORS = {
-    '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
-    '4': '#AA0000', '5': '#AA00AA', '6': '#FFAA00', '7': '#AAAAAA',
-    '8': '#555555', '9': '#5555FF', 'a': '#55FF55', 'b': '#55FFFF',
-    'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': '#FFFFFF',
+    "0": "#000000",
+    "1": "#0000AA",
+    "2": "#00AA00",
+    "3": "#00AAAA",
+    "4": "#AA0000",
+    "5": "#AA00AA",
+    "6": "#FFAA00",
+    "7": "#AAAAAA",
+    "8": "#555555",
+    "9": "#5555FF",
+    "a": "#55FF55",
+    "b": "#55FFFF",
+    "c": "#FF5555",
+    "d": "#FF55FF",
+    "e": "#FFFF55",
+    "f": "#FFFFFF",
 }
 _SECTION_FORMATS = {
-    'k': 'obfuscated', 'l': 'bold', 'm': 'strikethrough',
-    'n': 'underline', 'o': 'italic', 'r': 'reset',
+    "k": "obfuscated",
+    "l": "bold",
+    "m": "strikethrough",
+    "n": "underline",
+    "o": "italic",
+    "r": "reset",
 }
 
 
@@ -28,13 +44,13 @@ def motd_to_html(motd) -> str:
         raw = motd.to_plain()
     if not raw:
         return html_escape(motd.to_plain())
-    lines = raw.split('\n')
-    return '<br>'.join(_convert_motd_line(line) for line in lines)
+    lines = raw.split("\n")
+    return "<br>".join(_convert_motd_line(line) for line in lines)
 
 
 def _convert_motd_line(text: str) -> str:
     if not text:
-        return ''
+        return ""
     result = []
     current_styles = []
     current_color = None
@@ -42,35 +58,37 @@ def _convert_motd_line(text: str) -> str:
     has_format = False
 
     while i < len(text):
-        if text[i] == '§' and i + 1 < len(text):
+        if text[i] == "§" and i + 1 < len(text):
             has_format = True
             if result:
-                result.append('</span>')
+                result.append("</span>")
             code = text[i + 1].lower()
             if code in _SECTION_COLORS:
                 current_color = _SECTION_COLORS[code]
-                current_styles = [s for s in current_styles if s not in _SECTION_FORMATS.values()]
+                current_styles = [
+                    s for s in current_styles if s not in _SECTION_FORMATS.values()
+                ]
             elif code in _SECTION_FORMATS:
                 fmt = _SECTION_FORMATS[code]
-                if fmt == 'reset':
+                if fmt == "reset":
                     current_color = None
                     current_styles = []
-                elif fmt != 'obfuscated':
+                elif fmt != "obfuscated":
                     if fmt not in current_styles:
                         current_styles.append(fmt)
             styles = []
             if current_color:
-                styles.append(f'color:{current_color}')
+                styles.append(f"color:{current_color}")
             for s in current_styles:
-                if s == 'bold':
-                    styles.append('font-weight:bold')
-                elif s == 'strikethrough':
-                    styles.append('text-decoration:line-through')
-                elif s == 'underline':
-                    styles.append('text-decoration:underline')
-                elif s == 'italic':
-                    styles.append('font-style:italic')
-            result.append(f'<span style="{";".join(styles)}">' if styles else '<span>')
+                if s == "bold":
+                    styles.append("font-weight:bold")
+                elif s == "strikethrough":
+                    styles.append("text-decoration:line-through")
+                elif s == "underline":
+                    styles.append("text-decoration:underline")
+                elif s == "italic":
+                    styles.append("font-style:italic")
+            result.append(f'<span style="{";".join(styles)}">' if styles else "<span>")
             i += 2
         else:
             result.append(html_escape(text[i]))
@@ -78,74 +96,90 @@ def _convert_motd_line(text: str) -> str:
 
     if not has_format:
         return html_escape(text)
-    result.append('</span>')
-    return ''.join(result)
+    result.append("</span>")
+    return "".join(result)
 
 
-def try_single_address(host: str, port: int | None, timeout: float = 1.0, server_type: str = 'java') -> dict | None:
+def try_single_address(
+    host: str, port: int | None, timeout: float = 1.0, server_type: str = "java"
+) -> dict | None:
     try:
-        addr = host if port is None else f'{host}:{port}'
-        if server_type == 'bedrock':
+        addr = host if port is None else f"{host}:{port}"
+        if server_type == "bedrock":
             srv = BedrockServer.lookup(addr, timeout=timeout)
             st = srv.status()
             return {
-                'online': True,
-                'host': host, 'port': port,
-                'version': st.version.name, 'protocol': st.version.protocol,
-                'brand': getattr(st.version, 'brand', ''),
-                'motd': st.motd.to_plain(), 'motd_html': html_escape(st.motd.to_plain()),
-                'latency': round(st.latency, 1),
-                'players': {
-                    'online': st.players.online, 'max': st.players.max,
-                    'list': [],
+                "online": True,
+                "host": host,
+                "port": port,
+                "version": st.version.name,
+                "protocol": st.version.protocol,
+                "brand": getattr(st.version, "brand", ""),
+                "motd": st.motd.to_plain(),
+                "motd_html": html_escape(st.motd.to_plain()),
+                "latency": round(st.latency, 1),
+                "players": {
+                    "online": st.players.online,
+                    "max": st.players.max,
+                    "list": [],
                 },
-                'map_name': getattr(st, 'map_name', None) or '',
-                'gamemode': getattr(st, 'gamemode', None) or '',
-                'icon': None, 'error': None,
+                "map_name": getattr(st, "map_name", None) or "",
+                "gamemode": getattr(st, "gamemode", None) or "",
+                "icon": None,
+                "error": None,
             }
         srv = JavaServer.lookup(addr, timeout=timeout)
         st = srv.status()
         players = st.players
         sample = sorted((players.sample or []), key=lambda p: p.name.lower())
         return {
-            'online': True,
-            'host': host, 'port': port,
-            'version': st.version.name, 'protocol': st.version.protocol,
-            'motd': st.motd.to_plain(), 'motd_html': motd_to_html(st.motd),
-            'latency': round(st.latency, 1),
-            'players': {
-                'online': players.online, 'max': players.max,
-                'list': [{'name': p.name, 'id': p.id or None} for p in sample],
+            "online": True,
+            "host": host,
+            "port": port,
+            "version": st.version.name,
+            "protocol": st.version.protocol,
+            "motd": st.motd.to_plain(),
+            "motd_html": motd_to_html(st.motd),
+            "latency": round(st.latency, 1),
+            "players": {
+                "online": players.online,
+                "max": players.max,
+                "list": [{"name": p.name, "id": p.id or None} for p in sample],
             },
-            'icon': st.icon, 'error': None,
+            "icon": st.icon,
+            "error": None,
         }
     except Exception:
         return None
 
 
 def _rcon_send(sock, req_id, cmd_type, payload):
-    payload_bytes = payload.encode('utf-8') + b'\x00'
+    payload_bytes = payload.encode("utf-8") + b"\x00"
     length = 4 + 4 + len(payload_bytes) + 1
-    packet = struct.pack('<iii', length, req_id, cmd_type) + payload_bytes + b'\x00'
+    packet = struct.pack("<iii", length, req_id, cmd_type) + payload_bytes + b"\x00"
     sock.sendall(packet)
 
 
 def _rcon_recv(sock):
-    raw = b''
+    raw = b""
     while len(raw) < 4:
         chunk = sock.recv(4 - len(raw))
         if not chunk:
-            return None, b''
+            return None, b""
         raw += chunk
-    length = struct.unpack('<i', raw[:4])[0]
+    length = struct.unpack("<i", raw[:4])[0]
     while len(raw) < 4 + length:
         chunk = sock.recv(4 + length - len(raw))
         if not chunk:
             return None, raw
         raw += chunk
-    req_id = struct.unpack('<i', raw[4:8])[0]
-    payload_end = raw.find(b'\x00\x00', 12)
-    payload = raw[12:payload_end].decode('utf-8', errors='replace') if payload_end != -1 else ''
+    req_id = struct.unpack("<i", raw[4:8])[0]
+    payload_end = raw.find(b"\x00\x00", 12)
+    payload = (
+        raw[12:payload_end].decode("utf-8", errors="replace")
+        if payload_end != -1
+        else ""
+    )
     return req_id, payload
 
 
@@ -155,7 +189,7 @@ def _rcon_get_connection(host: str, port: int, password: str, timeout: float = 3
         sock = _rcon_pool.get(key)
         if sock:
             try:
-                _rcon_send(sock, 99, 2, 'list')
+                _rcon_send(sock, 99, 2, "list")
                 req_id, _ = _rcon_recv(sock)
                 if req_id == 99:
                     return sock
@@ -177,36 +211,47 @@ def _rcon_get_connection(host: str, port: int, password: str, timeout: float = 3
         return sock
 
 
-def query_rcon_players(host: str, port: int, password: str, timeout: float = 3.0) -> list[str] | None:
+def query_rcon_players(
+    host: str, port: int, password: str, timeout: float = 3.0
+) -> list[str] | None:
     try:
         sock = _rcon_get_connection(host, port, password, timeout)
         if not sock:
             return None
-        _rcon_send(sock, 2, 2, 'list')
+        _rcon_send(sock, 2, 2, "list")
         req_id, resp = _rcon_recv(sock)
         if req_id != 2 or not resp:
             _rcon_pool.pop((host, port, password), None)
-            try: sock.close()
-            except Exception: pass
+            try:
+                sock.close()
+            except Exception:
+                pass
             return None
-        m = re.search(r'(?:online|在线上?)[:：]\s*(.+)', resp)
+        m = re.search(r"(?:online|在线上?)[:：]\s*(.+)", resp)
         if not m:
             return []
-        return [n.strip() for n in m.group(1).split(',') if n.strip()]
+        return [n.strip() for n in m.group(1).split(",") if n.strip()]
     except Exception:
         return None
 
 
 def query_one_server(server_info: dict) -> dict:
-    server_type = server_info.get('server_type', 'java')
-    addresses = [(server_info['primary_host'], server_info['primary_port'], 'primary')]
-    for b in server_info.get('backups', []):
-        addresses.append((b['host'], b['port'], 'backup'))
+    server_type = server_info.get("server_type", "java")
+    addresses = [(server_info["primary_host"], server_info["primary_port"], "primary")]
+    for b in server_info.get("backups", []):
+        addresses.append((b["host"], b["port"], "backup"))
 
     finished = []
     pool = eventlet.GreenPool()
+
     def _query_one(host, port, addr_type):
-        return (host, port, addr_type, try_single_address(host, port, server_type=server_type))
+        return (
+            host,
+            port,
+            addr_type,
+            try_single_address(host, port, server_type=server_type),
+        )
+
     for host, port, addr_type in addresses:
         finished.append(pool.spawn(_query_one, host, port, addr_type))
     finished = [r.wait() for r in finished]
@@ -216,53 +261,84 @@ def query_one_server(server_info: dict) -> dict:
     primary_backup_pending = []
 
     for host, port, addr_type, result in finished:
-        if addr_type == 'primary':
+        if addr_type == "primary":
             if result:
                 active_status = result
             else:
-                backup_statuses.append({'host': host, 'port': port, 'type': 'primary', 'online': False})
+                backup_statuses.append(
+                    {"host": host, "port": port, "type": "primary", "online": False}
+                )
         else:
             if result:
-                backup_statuses.append({'host': host, 'port': port, 'type': 'backup', 'online': True, 'latency': result['latency']})
+                backup_statuses.append(
+                    {
+                        "host": host,
+                        "port": port,
+                        "type": "backup",
+                        "online": True,
+                        "latency": result["latency"],
+                    }
+                )
                 if active_status is None:
                     active_status = result
             else:
-                backup_statuses.append({'host': host, 'port': port, 'type': 'backup', 'online': False})
+                backup_statuses.append(
+                    {"host": host, "port": port, "type": "backup", "online": False}
+                )
 
     if active_status is None:
         return {
-            'online': False, 'server_id': server_info['id'], 'server_name': server_info['name'],
-            'server_type': server_type,
-            'active_host': server_info['primary_host'], 'active_port': server_info['primary_port'],
-            'version': None, 'protocol': None, 'motd': None, 'motd_html': None,
-            'latency': None, 'icon': None,
-            'players': {'online': 0, 'max': 0, 'list': []},
-            'backup_statuses': backup_statuses, 'error': '所有地址均无法连接',
-            'map_name': '', 'gamemode': '', 'brand': '',
+            "online": False,
+            "server_id": server_info["id"],
+            "server_name": server_info["name"],
+            "server_type": server_type,
+            "active_host": server_info["primary_host"],
+            "active_port": server_info["primary_port"],
+            "version": None,
+            "protocol": None,
+            "motd": None,
+            "motd_html": None,
+            "latency": None,
+            "icon": None,
+            "players": {"online": 0, "max": 0, "list": []},
+            "backup_statuses": backup_statuses,
+            "error": "所有地址均无法连接",
+            "map_name": "",
+            "gamemode": "",
+            "brand": "",
         }
 
     has_rcon = False
-    rcon_host = (server_info.get('rcon_host') or '').strip()
-    rcon_password = (server_info.get('rcon_password') or '').strip()
+    rcon_host = (server_info.get("rcon_host") or "").strip()
+    rcon_password = (server_info.get("rcon_password") or "").strip()
     if rcon_host and rcon_password:
-        rcon_port = int(server_info.get('rcon_port', 25575) or 25575)
+        rcon_port = int(server_info.get("rcon_port", 25575) or 25575)
         rcon_names = query_rcon_players(rcon_host, rcon_port, rcon_password)
         if rcon_names is not None:
             has_rcon = True
-            active_status['players']['online'] = len(rcon_names)
-            active_status['players']['list'] = [{'name': n, 'id': None} for n in rcon_names]
+            active_status["players"]["online"] = len(rcon_names)
+            active_status["players"]["list"] = [
+                {"name": n, "id": None} for n in rcon_names
+            ]
 
     return {
-        'online': True, 'server_id': server_info['id'], 'server_name': server_info['name'],
-        'server_type': server_type,
-        'active_host': active_status['host'], 'active_port': active_status['port'],
-        'version': active_status['version'], 'protocol': active_status['protocol'],
-        'motd': active_status['motd'], 'motd_html': active_status.get('motd_html'),
-        'latency': active_status['latency'], 'icon': active_status.get('icon'),
-        'players': active_status['players'],
-        'backup_statuses': backup_statuses, 'error': None,
-        'map_name': active_status.get('map_name', ''),
-        'gamemode': active_status.get('gamemode', ''),
-        'brand': active_status.get('brand', ''),
-        'has_rcon': has_rcon,
+        "online": True,
+        "server_id": server_info["id"],
+        "server_name": server_info["name"],
+        "server_type": server_type,
+        "active_host": active_status["host"],
+        "active_port": active_status["port"],
+        "version": active_status["version"],
+        "protocol": active_status["protocol"],
+        "motd": active_status["motd"],
+        "motd_html": active_status.get("motd_html"),
+        "latency": active_status["latency"],
+        "icon": active_status.get("icon"),
+        "players": active_status["players"],
+        "backup_statuses": backup_statuses,
+        "error": None,
+        "map_name": active_status.get("map_name", ""),
+        "gamemode": active_status.get("gamemode", ""),
+        "brand": active_status.get("brand", ""),
+        "has_rcon": has_rcon,
     }
