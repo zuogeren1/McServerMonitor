@@ -10,7 +10,7 @@ from flask import Flask, render_template, jsonify, request, session
 from flask_socketio import SocketIO, emit
 
 from db import (
-    init_db, get_all_servers, add_server, delete_server, update_server,
+    init_db, get_all_servers, add_server, delete_server, update_server, get_server_rcon_password,
     save_history, cleanup_old_history, get_history,
     parse_address, track_players, get_players, get_player_detail, delete_player,
     get_player_list_at_time, optimize_database,
@@ -213,10 +213,17 @@ def api_cleanup_server():
     return jsonify({'ok': True})
 
 
-@app.route('/api/servers/<int:sid>', methods=['PUT', 'DELETE'])
+@app.route('/api/servers/<int:sid>', methods=['GET', 'PUT', 'DELETE'])
 def api_server_detail(sid):
     if _config.get('require_login', False) and not session.get('logged_in'):
         return jsonify({'error': 'unauthorized'}), 401
+    if request.method == 'GET':
+        servers = get_all_servers()
+        s = next((x for x in servers if x['id'] == sid), None)
+        if not s:
+            return jsonify({'error': 'not found'}), 404
+        s['rcon_password'] = get_server_rcon_password(sid)
+        return jsonify(s)
     if request.method == 'DELETE':
         clean_data = request.args.get('clean_data', '0') == '1'
         delete_server(sid, clean_data=clean_data)

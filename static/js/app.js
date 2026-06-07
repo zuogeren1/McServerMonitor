@@ -498,9 +498,8 @@ function resetForm() {
 }
 
 function editServer(sid) {
-  fetch('/api/servers').then(r => r.json()).then(servers => {
-    const s = servers.find(x => x.id === sid);
-    if (!s) return;
+  fetch(`/api/servers/${sid}`).then(r => r.json()).then(s => {
+    if (!s || s.error) return;
     editingServerId = sid;
     document.getElementById('editServerId').value = sid;
     document.getElementById('srvName').value = s.name;

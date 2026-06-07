@@ -201,7 +201,7 @@ def get_all_servers():
                 'server_type': s['server_type'] if 'server_type' in s.keys() else 'java',
                 'rcon_host': s['rcon_host'] if 'rcon_host' in s.keys() else '',
                 'rcon_port': s['rcon_port'] if 'rcon_port' in s.keys() else None,
-                'rcon_password': s['rcon_password'] if 'rcon_password' in s.keys() else '',
+                'has_rcon': bool((s['rcon_host'] if 'rcon_host' in s.keys() else '') and (s['rcon_password'] if 'rcon_password' in s.keys() else '')),
                 'backups': [{'id': b['id'], 'host': b['host'], 'port': b['port'], 'priority': b['priority']} for b in backups],
             })
     return result
@@ -244,6 +244,12 @@ def cleanup_residual_by_name(name):
     with _get_conn(commit=True) as db:
         db.execute('PRAGMA foreign_keys = ON')
         db.execute("DELETE FROM player_sessions WHERE server_name=?", (name,))
+
+
+def get_server_rcon_password(server_id):
+    with _get_conn() as db:
+        row = db.execute("SELECT rcon_password FROM servers WHERE id=?", (server_id,)).fetchone()
+        return row['rcon_password'] if row else ''
 
 
 def update_server(server_id, name, primary_host, primary_port, backups, server_type='java', rcon_host='', rcon_port=None, rcon_password=''):
