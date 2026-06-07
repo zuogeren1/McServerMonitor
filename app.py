@@ -20,7 +20,7 @@ from mc_query import query_one_server
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secrets.token_hex(24)
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins='*')
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins=[])
 
 server_statuses: dict[int, dict] = {}
 _cleanup_counter = 0
@@ -128,7 +128,6 @@ def api_config():
     return jsonify({
         'check_interval': _config['check_interval'],
         'need_login': _config.get('require_login', False) and not session.get('logged_in'),
-        'username': _config['username'],
         'require_login': _config.get('require_login', False),
         'host': _config.get('host', '0.0.0.0'),
         'port': _config.get('port', 9000),
@@ -137,10 +136,25 @@ def api_config():
     })
 
 
+_login_attempts = {}
+
 @app.route('/api/login', methods=['POST'])
 def api_login():
+    ip = request.remote_addr
+    now = time.time()
+    entry = _login_attempts.get(ip)
+    if entry:
+        if now - entry[1] > 60:
+            _login_attempts[ip] = [1, now]
+        else:
+            entry[0] += 1
+            if entry[0] > 5:
+                return jsonify({'error': '尝试次数过多，请稍后再试'}), 429
+    else:
+        _login_attempts[ip] = [1, now]
     data = request.get_json()
     if data.get('username') == _config['username'] and data.get('password') == _config['password']:
+        _login_attempts.pop(ip, None)
         session['logged_in'] = True
         return jsonify({'ok': True, 'username': _config['username']})
     return jsonify({'error': '用户名或密码错误'}), 401
@@ -185,9 +199,9 @@ def _refresh_server_status(sid):
 
 @app.route('/api/servers', methods=['GET', 'POST'])
 def api_servers():
+    if _config.get('require_login', False) and not session.get('logged_in'):
+        return jsonify({'error': 'unauthorized'}), 401
     if request.method == 'POST':
-        if _config.get('require_login', False) and not session.get('logged_in'):
-            return jsonify({'error': 'unauthorized'}), 401
         sid = add_server(*_parse_server_form(request.get_json()))
         _refresh_server_status(sid)
         return jsonify({'id': sid}), 201
@@ -310,6 +324,7 @@ def api_player_detail(name):
 
 
 # ---- WebSocket ----
+_query_busy = False
 
 @socketio.on('connect')
 def on_connect():
@@ -318,7 +333,14 @@ def on_connect():
 
 @socketio.on('request_refresh')
 def on_refresh():
-    query_all_servers()
+    global _query_busy
+    if _query_busy:
+        return
+    _query_busy = True
+    try:
+        query_all_servers()
+    finally:
+        _query_busy = False
 
 
 if __name__ == '__main__':
