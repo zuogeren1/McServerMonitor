@@ -438,7 +438,7 @@ def update_server(
 
 _last_player_list = {}
 _last_player_count = {}
-_skip_counter = {}
+
 
 def save_history(server_id: int, status: dict):
     raw_names = [p["name"] for p in status["players"]["list"]]
@@ -449,15 +449,14 @@ def save_history(server_id: int, status: dict):
     key = str(server_id)
     online = status["online"]
     count = status["players"]["online"]
-    changed = (key not in _last_player_list
-               or _last_player_list[key] != names
-               or _last_player_count.get(key) != online)
-    _skip_counter[key] = _skip_counter.get(key, 0) + 1
-    if not changed and _skip_counter[key] < 30 and online:
-        return
-    _skip_counter[key] = 0
+    changed = (
+        key not in _last_player_list
+        or _last_player_list[key] != names
+        or _last_player_count.get(key) != online
+    )
     _last_player_list[key] = names
     _last_player_count[key] = online
+    player_list_json = json.dumps(names, ensure_ascii=False) if changed else "[]"
     with _get_conn(commit=True) as db:
         db.execute(
             "INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency) VALUES (?, ?, ?, ?, ?, ?)",
@@ -466,7 +465,7 @@ def save_history(server_id: int, status: dict):
                 time.time(),
                 1 if online else 0,
                 count,
-                json.dumps(names, ensure_ascii=False),
+                player_list_json,
                 status["latency"],
             ),
         )
@@ -849,7 +848,7 @@ def get_players(filter_online: str | None = None, sort_by: str = "name"):
 def get_player_list_at_time(server_id: int, timestamp: float):
     with _get_conn() as db:
         row = db.execute(
-            "SELECT player_list FROM history WHERE server_id=? ORDER BY ABS(timestamp - ?) LIMIT 1",
+            "SELECT player_list FROM history WHERE server_id=? AND player_list!='[]' ORDER BY ABS(timestamp - ?) LIMIT 1",
             (server_id, timestamp),
         ).fetchone()
     pl = json.loads(row["player_list"]) if row and row["player_list"] else []
