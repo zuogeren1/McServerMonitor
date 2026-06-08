@@ -517,6 +517,17 @@ document.getElementById("addBackupBtn").addEventListener("click", () => {
   container.appendChild(div);
 });
 
+function _updateRconVisibility() {
+  const type = document.querySelector('input[name="srvType"]:checked');
+  const rconGroup = document.getElementById("rconFormGroup");
+  if (rconGroup)
+    rconGroup.style.display = type && type.value === "bedrock" ? "none" : "";
+}
+
+document.querySelectorAll('input[name="srvType"]').forEach((radio) => {
+  radio.addEventListener("change", _updateRconVisibility);
+});
+
 function reindexBackups() {
   document
     .querySelectorAll("#backupList .backup-row .idx")
@@ -635,6 +646,7 @@ function resetForm() {
     'input[name="srvType"][value="java"]',
   );
   if (javaRadio) javaRadio.checked = true;
+  _updateRconVisibility();
   document.getElementById("formTitle").innerHTML =
     '<svg class="svg-icon"><use href="#icon-plus"/></svg> 添加服务器';
   document.getElementById("cancelEdit").style.display = "none";
@@ -658,6 +670,7 @@ function editServer(sid) {
         'input[name="srvType"][value="' + (s.server_type || "java") + '"]',
       );
       if (typeRadio) typeRadio.checked = true;
+      _updateRconVisibility();
       document.getElementById("formTitle").innerHTML =
         '<svg class="svg-icon"><use href="#icon-edit"/></svg> 编辑服务器';
       document.getElementById("cancelEdit").style.display = "";
