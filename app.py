@@ -141,18 +141,18 @@ def api_single_status(sid):
 
 @app.route("/api/config", methods=["GET"])
 def api_config():
-    return jsonify(
-        {
-            "check_interval": _config["check_interval"],
-            "need_login": _config.get("require_login", False)
-            and not session.get("logged_in"),
-            "require_login": _config.get("require_login", False),
-            "host": _config.get("host", "0.0.0.0"),
-            "port": _config.get("port", 9000),
-            "db_path": _config.get("db_path", "monitor.db"),
-            "offline_threshold": _config.get("offline_threshold", 2),
-        }
-    )
+    resp = {
+        "check_interval": _config["check_interval"],
+        "need_login": _config.get("require_login", False)
+        and not session.get("logged_in"),
+        "require_login": _config.get("require_login", False),
+        "offline_threshold": _config.get("offline_threshold", 2),
+    }
+    if session.get("logged_in"):
+        resp["host"] = _config.get("host", "0.0.0.0")
+        resp["port"] = _config.get("port", 9000)
+        resp["db_path"] = _config.get("db_path", "monitor.db")
+    return jsonify(resp)
 
 
 _login_attempts = {}
@@ -270,7 +270,6 @@ def api_server_detail(sid):
         s = next((x for x in servers if x["id"] == sid), None)
         if not s:
             return jsonify({"error": "not found"}), 404
-        s["rcon_password"] = get_server_rcon_password(sid)
         return jsonify(s)
     if request.method == "DELETE":
         clean_data = request.args.get("clean_data", "0") == "1"
@@ -279,7 +278,11 @@ def api_server_detail(sid):
         socketio.emit("status_update", list(server_statuses.values()))
         return jsonify({"ok": True})
 
-    update_server(sid, *_parse_server_form(request.get_json()))
+    data = request.get_json()
+    parsed = _parse_server_form(data)
+    if not data.get("rcon_password", ""):
+        parsed = parsed[:7] + (get_server_rcon_password(sid),)
+    update_server(sid, *parsed)
     _refresh_server_status(sid)
     return jsonify({"ok": True})
 
@@ -370,7 +373,7 @@ def api_player_detail(name):
 
 
 # ---- WebSocket ----
-_query_busy = False
+_query_lock = eventlet.semaphore.Semaphore(1)
 
 
 @socketio.on("connect")
@@ -380,14 +383,12 @@ def on_connect():
 
 @socketio.on("request_refresh")
 def on_refresh():
-    global _query_busy
-    if _query_busy:
+    if not _query_lock.acquire(blocking=False):
         return
-    _query_busy = True
     try:
         query_all_servers()
     finally:
-        _query_busy = False
+        _query_lock.release()
 
 
 if __name__ == "__main__":

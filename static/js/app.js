@@ -641,7 +641,9 @@ function resetForm() {
   document.getElementById("srvAddr").value = "";
   document.getElementById("backupList").innerHTML = "";
   document.getElementById("srvRconHost").value = "";
-  document.getElementById("srvRconPassword").value = "";
+  const rconPwd = document.getElementById("srvRconPassword");
+  rconPwd.value = "";
+  rconPwd.placeholder = "RCON 密码";
   const javaRadio = document.querySelector(
     'input[name="srvType"][value="java"]',
   );
@@ -684,7 +686,10 @@ function editServer(sid) {
           ? rconHost + ":" + rconPort
           : rconHost
         : "";
-      document.getElementById("srvRconPassword").value = s.rcon_password || "";
+        document.getElementById("srvRconPassword").value = "";
+      document.getElementById("srvRconPassword").placeholder = s.has_rcon
+        ? "已设置，留空不修改"
+        : "RCON 密码";
 
       const container = document.getElementById("backupList");
       container.innerHTML = "";
