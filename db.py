@@ -157,6 +157,34 @@ def _migrate_players(db):
     )
 
 
+def _merge_fragmented_sessions(db):
+    cursor = db.execute(
+        """SELECT id, player_name, server_name, login_time, logout_time
+           FROM player_sessions
+           ORDER BY player_name, server_name, login_time"""
+    )
+    prev = None
+    to_delete = []
+    merged = 0
+    for row in cursor:
+        if prev and row[1] == prev[1] and row[2] == prev[2]:
+            gap = row[3] - (prev[4] or row[3])
+            if gap <= 10:
+                db.execute(
+                    "UPDATE player_sessions SET logout_time=? WHERE id=?",
+                    (row[4], prev[0]),
+                )
+                to_delete.append(row[0])
+                prev = (prev[0], prev[1], prev[2], prev[3], row[4])
+                merged += 1
+                continue
+        prev = (row[0], row[1], row[2], row[3], row[4])
+    for tid in to_delete:
+        db.execute("DELETE FROM player_sessions WHERE id=?", (tid,))
+    if merged:
+        print(f"[init_db] Merged {merged} fragmented player sessions")
+
+
 def init_db(db_path=None):
     if db_path:
         _set_db_path(db_path)
@@ -217,6 +245,16 @@ def init_db(db_path=None):
     db.execute(
         "DELETE FROM player_sessions WHERE server_name NOT IN (SELECT name FROM servers)"
     )
+
+    if not db.execute(
+        "SELECT value FROM config WHERE key='merged_sessions'"
+    ).fetchone():
+        _merge_fragmented_sessions(db)
+        db.commit()
+        db.execute("VACUUM")
+        db.execute(
+            "INSERT OR REPLACE INTO config (key, value) VALUES ('merged_sessions', '1')"
+        )
 
     global check_interval
     row = db.execute("SELECT value FROM config WHERE key='check_interval'").fetchone()
@@ -398,20 +436,36 @@ def update_server(
             )
 
 
+_last_player_list = {}
+_last_player_count = {}
+_skip_counter = {}
+
 def save_history(server_id: int, status: dict):
     raw_names = [p["name"] for p in status["players"]["list"]]
     anon_count = sum(1 for n in raw_names if " " in n)
     names = [n for n in raw_names if " " not in n]
     if anon_count > 0:
         names.append(f"{_ANON_NAME} x{anon_count}")
+    key = str(server_id)
+    online = status["online"]
+    count = status["players"]["online"]
+    changed = (key not in _last_player_list
+               or _last_player_list[key] != names
+               or _last_player_count.get(key) != online)
+    _skip_counter[key] = _skip_counter.get(key, 0) + 1
+    if not changed and _skip_counter[key] < 30 and online:
+        return
+    _skip_counter[key] = 0
+    _last_player_list[key] = names
+    _last_player_count[key] = online
     with _get_conn(commit=True) as db:
         db.execute(
             "INSERT INTO history (server_id, timestamp, online, player_count, player_list, latency) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 server_id,
                 time.time(),
-                1 if status["online"] else 0,
-                status["players"]["online"],
+                1 if online else 0,
+                count,
                 json.dumps(names, ensure_ascii=False),
                 status["latency"],
             ),
