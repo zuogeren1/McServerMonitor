@@ -185,6 +185,33 @@ def _merge_fragmented_sessions(db):
         print(f"[init_db] Merged {merged} fragmented player sessions")
 
 
+def _dedup_history_player_list(db):
+    servers = db.execute("SELECT id FROM servers").fetchall()
+    total = 0
+    for (sid,) in servers:
+        cursor = db.execute(
+            "SELECT id, player_list FROM history WHERE server_id=? ORDER BY timestamp",
+            (sid,),
+        )
+        prev_list = None
+        to_update = []
+        for row in cursor:
+            if row[1] == "[]":
+                prev_list = None
+                continue
+            if prev_list is not None and row[1] == prev_list:
+                to_update.append(row[0])
+            else:
+                prev_list = row[1]
+        for rid in to_update:
+            db.execute(
+                "UPDATE history SET player_list='[]' WHERE id=?", (rid,)
+            )
+        total += len(to_update)
+    if total:
+        print(f"[init_db] Deduplicated {total} history player_list entries")
+
+
 def init_db(db_path=None):
     if db_path:
         _set_db_path(db_path)
@@ -254,6 +281,16 @@ def init_db(db_path=None):
         db.execute("VACUUM")
         db.execute(
             "INSERT OR REPLACE INTO config (key, value) VALUES ('merged_sessions', '1')"
+        )
+
+    if not db.execute(
+        "SELECT value FROM config WHERE key='deduped_history'"
+    ).fetchone():
+        _dedup_history_player_list(db)
+        db.commit()
+        db.execute("VACUUM")
+        db.execute(
+            "INSERT OR REPLACE INTO config (key, value) VALUES ('deduped_history', '1')"
         )
 
     global check_interval
