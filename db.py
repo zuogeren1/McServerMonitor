@@ -615,7 +615,7 @@ def get_history(
     estimated_points = max(duration / max(check_interval, 1), 1)
 
     with _get_conn() as db:
-        if estimated_points <= 3000:
+        if estimated_points <= 20000:
             rows = db.execute(
                 "SELECT timestamp, online, player_count, player_list, latency FROM history "
                 "WHERE server_id=? AND timestamp>=? AND timestamp<=? ORDER BY timestamp",
@@ -634,7 +634,7 @@ def get_history(
                     }
                 )
         else:
-            bucket_seconds = max(int(duration / 2000), 1)
+            bucket_seconds = max(int(duration / 10000), 1)
             rows = db.execute(
                 """SELECT ROUND(timestamp / ?) * ? as bucket_time, ROUND(AVG(player_count)) as player_count,
                           MAX(online) as online, ROUND(AVG(latency), 1) as latency
