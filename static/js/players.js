@@ -77,7 +77,10 @@ async function copyPlayerName() {
 function formatDuration(sec) {
   if (!sec || sec < 60) return Math.round(sec) + "秒";
   if (sec < 3600) return Math.round(sec / 60) + "分";
-  return (sec / 3600).toFixed(1) + "小时";
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  if (m === 0) return h + "小时";
+  return h + "小时" + m + "分";
 }
 
 document.getElementById("playerSort").addEventListener("change", (e) => {
@@ -224,6 +227,14 @@ async function loadPlayerDetail(name) {
     const chartIsMobile = window.matchMedia("(max-width: 768px)").matches;
     if (pdHourlyChart) pdHourlyChart.destroy();
 
+    function _formatMinutes(m) {
+      const h = Math.floor(m / 60);
+      const min = Math.round(m % 60);
+      if (h === 0) return min + "分";
+      if (min === 0) return h + "小时";
+      return h + "小时" + min + "分";
+    }
+
     const barLabelPlugin = {
       id: "barLabels",
       afterDatasetsDraw(chart) {
@@ -247,7 +258,7 @@ async function loadPlayerDetail(name) {
           const val = dataset.data[i];
           if (!val) continue;
           const bar = meta.data[i];
-          ctx.fillText(val.toFixed(1), bar.x, bar.y - 2);
+          ctx.fillText(_formatMinutes(val), bar.x, bar.y - 2);
         }
         ctx.restore();
       },
@@ -259,7 +270,7 @@ async function loadPlayerDetail(name) {
         labels: Array.from({ length: 24 }, (_, i) => i + "时"),
         datasets: [
           {
-            label: "在线时长(分钟)",
+            label: "在线时长",
             data: hourly,
             backgroundColor: "rgba(99,102,241,0.6)",
             borderColor: "#6366f1",
@@ -275,7 +286,7 @@ async function loadPlayerDetail(name) {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx) => `${ctx.parsed.y.toFixed(1)} 分钟`,
+              label: (ctx) => _formatMinutes(ctx.parsed.y),
               title: (items) => items[0].label,
             },
           },
