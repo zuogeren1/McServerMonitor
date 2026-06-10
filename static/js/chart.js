@@ -174,24 +174,29 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
   chartFullMax = labels.length > 0 ? labels[labels.length - 1].getTime() : 0;
   chartTotalDuration = totalDuration;
 
-  const plugins = [crosshairPlugin, scrollbarSyncPlugin];
+  const isRealtime = range === "15m";
 
-  const zoomConfig = {
-    zoom: {
-      wheel: { enabled: true },
-      drag: {
-        enabled: true,
-        backgroundColor: "rgba(99,102,241,0.08)",
-        borderColor: "rgba(99,102,241,0.3)",
-      },
-      pinch: { enabled: true },
-      mode: "x",
-    },
-    pan: { enabled: true, mode: "x" },
-    limits: {
-      x: { min: chartFullMin, max: chartFullMax, minRange: 60000 },
-    },
-  };
+  const plugins = [crosshairPlugin];
+  if (!isRealtime) plugins.push(scrollbarSyncPlugin);
+
+  const zoomConfig = isRealtime
+    ? undefined
+    : {
+        zoom: {
+          wheel: { enabled: true },
+          drag: {
+            enabled: true,
+            backgroundColor: "rgba(99,102,241,0.08)",
+            borderColor: "rgba(99,102,241,0.3)",
+          },
+          pinch: { enabled: true },
+          mode: "x",
+        },
+        pan: { enabled: true, mode: "x" },
+        limits: {
+          x: { min: chartFullMin, max: chartFullMax, minRange: 60000 },
+        },
+      };
 
   const tickLimit = 20;
   const xScaleConfig = {
@@ -210,8 +215,10 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
     ticks: { color: "#94a3b8", maxTicksLimit: tickLimit, font: { size: 10 } },
     grid: { color: "rgba(255,255,255,0.04)" },
   };
-  xScaleConfig.min = chartFullMin;
-  xScaleConfig.max = chartFullMax;
+  if (!isRealtime) {
+    xScaleConfig.min = chartFullMin;
+    xScaleConfig.max = chartFullMax;
+  }
 
   const pointData = labels.map((l, i) => ({ x: l.getTime(), y: values[i] }));
 
@@ -299,11 +306,16 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
     plugins: plugins,
   });
 
-  initScrollbar();
-  document.getElementById("chartScrollbar").style.display = "block";
-  document.getElementById("resetZoomBtn").style.display = "inline-block";
-  document.getElementById("scrollbarThumb").style.left = "0%";
-  document.getElementById("scrollbarThumb").style.width = "100%";
+  if (isRealtime) {
+    document.getElementById("chartScrollbar").style.display = "none";
+    document.getElementById("resetZoomBtn").style.display = "none";
+  } else {
+    initScrollbar();
+    document.getElementById("chartScrollbar").style.display = "block";
+    document.getElementById("resetZoomBtn").style.display = "inline-block";
+    document.getElementById("scrollbarThumb").style.left = "0%";
+    document.getElementById("scrollbarThumb").style.width = "100%";
+  }
 }
 
 function computeYMax(values) {
