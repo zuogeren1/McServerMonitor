@@ -58,7 +58,6 @@ const scrollbarSyncPlugin = {
 
 // ---- Scrollbar ----
 function updateScrollbarFromChart(chart) {
-  if (chartTotalDuration < 21600) return;
   const xScale = chart.scales.x;
   if (!xScale) return;
   const viewMin = xScale.min;
@@ -167,16 +166,6 @@ function applyScrollbarPan(pct) {
   scrollbarDragging = false;
 }
 
-function updateZoomControls(visible) {
-  document.getElementById("chartScrollbar").style.display = visible
-    ? "block"
-    : "none";
-  document.getElementById("resetZoomBtn").style.display = visible
-    ? "inline-block"
-    : "none";
-  if (visible) initScrollbar();
-}
-
 // ---- Chart ----
 function createChart(labels, values, yMax, range, totalDuration, showDate) {
   const ctx = document.getElementById("historyChart").getContext("2d");
@@ -185,30 +174,26 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
   chartFullMax = labels.length > 0 ? labels[labels.length - 1].getTime() : 0;
   chartTotalDuration = totalDuration;
 
-  const enableZoom = totalDuration >= 21600;
-  const plugins = [crosshairPlugin];
-  if (enableZoom) plugins.push(scrollbarSyncPlugin);
+  const plugins = [crosshairPlugin, scrollbarSyncPlugin];
 
-  const zoomConfig = enableZoom
-    ? {
-        zoom: {
-          wheel: { enabled: true },
-          drag: {
-            enabled: true,
-            backgroundColor: "rgba(99,102,241,0.08)",
-            borderColor: "rgba(99,102,241,0.3)",
-          },
-          pinch: { enabled: true },
-          mode: "x",
-        },
-        pan: { enabled: true, mode: "x" },
-        limits: {
-          x: { min: chartFullMin, max: chartFullMax, minRange: 60000 },
-        },
-      }
-    : undefined;
+  const zoomConfig = {
+    zoom: {
+      wheel: { enabled: true },
+      drag: {
+        enabled: true,
+        backgroundColor: "rgba(99,102,241,0.08)",
+        borderColor: "rgba(99,102,241,0.3)",
+      },
+      pinch: { enabled: true },
+      mode: "x",
+    },
+    pan: { enabled: true, mode: "x" },
+    limits: {
+      x: { min: chartFullMin, max: chartFullMax, minRange: 60000 },
+    },
+  };
 
-  const tickLimit = enableZoom ? 20 : 10;
+  const tickLimit = 20;
   const xScaleConfig = {
     type: "time",
     time: {
@@ -225,10 +210,8 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
     ticks: { color: "#94a3b8", maxTicksLimit: tickLimit, font: { size: 10 } },
     grid: { color: "rgba(255,255,255,0.04)" },
   };
-  if (enableZoom) {
-    xScaleConfig.min = chartFullMin;
-    xScaleConfig.max = chartFullMax;
-  }
+  xScaleConfig.min = chartFullMin;
+  xScaleConfig.max = chartFullMax;
 
   const pointData = labels.map((l, i) => ({ x: l.getTime(), y: values[i] }));
 
@@ -316,7 +299,11 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
     plugins: plugins,
   });
 
-  updateZoomControls(enableZoom);
+  initScrollbar();
+  document.getElementById("chartScrollbar").style.display = "block";
+  document.getElementById("resetZoomBtn").style.display = "inline-block";
+  document.getElementById("scrollbarThumb").style.left = "0%";
+  document.getElementById("scrollbarThumb").style.width = "100%";
 }
 
 function computeYMax(values) {
@@ -390,6 +377,7 @@ async function appendRealtimeData(sid) {
       ? historyData[historyData.length - 1].timestamp
       : chartLastTs;
 
+  if (!historyChart) return;
   historyChart.data.datasets[0].data = historyData.map((d) => ({
     x: d.timestamp * 1000,
     y: d.player_count || (d.online ? 0 : null),
