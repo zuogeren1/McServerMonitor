@@ -498,6 +498,13 @@ body {
 .btn-danger:hover {
   background: #991b1b;
 }
+[data-theme="light"] .btn-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+[data-theme="light"] .btn-danger:hover {
+  background: #fecaca;
+}
 .btn-sm {
   padding: 0.3rem 0.75rem;
   font-size: 0.8rem;
