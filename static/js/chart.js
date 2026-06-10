@@ -192,7 +192,6 @@ function createChart(labels, values, yMax, range, totalDuration, showDate) {
           pinch: { enabled: true },
           mode: "x",
         },
-        pan: { enabled: true, mode: "x" },
         limits: {
           x: { min: chartFullMin, max: chartFullMax, minRange: 60000 },
         },
