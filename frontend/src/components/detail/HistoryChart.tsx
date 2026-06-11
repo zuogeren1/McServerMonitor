@@ -114,7 +114,7 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
             if (!tsSec) return
             const pt = historyDataRef.current.find((d) => Math.abs(d.timestamp - tsSec) < 0.5)
             if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list); return }
-            try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), r.players || []) } catch { /* */ }
+            try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), Array.isArray(r) ? r : []) } catch { /* */ }
           },
         },
         plugins: activePlugins,

@@ -227,8 +227,8 @@ export function fetchHistory(
 export function fetchPlayerListAtTime(
   sid: number,
   ts: string
-): Promise<{ players: string[] }> {
-  return apiFetch<{ players: string[] }>(
+): Promise<string[]> {
+  return apiFetch<string[]>(
     `/api/servers/${sid}/player-list?ts=${encodeURIComponent(ts)}`
   )
 }
