@@ -33,7 +33,7 @@ export function ServerCard({ server: s, showMotd }: Props) {
 
   return (
     <Card
-      className="cursor-pointer hover:border-(--color-accent) transition-colors"
+      className="cursor-pointer transition-colors hover:border-[#6366f1] hover:bg-[#6366f1]/10"
       onClick={openDetail}
     >
       <CardContent className="p-4">
