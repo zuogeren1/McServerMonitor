@@ -21,7 +21,6 @@ export function setScrollbarDragging(v: boolean) {
 export const scrollbarSyncPlugin = {
   id: 'scrollbarSync',
   afterUpdate(chart: AnyChartInstance) {
-    if (_scrollbarDragging) return
     const fullRange = _chartFullMax - _chartFullMin
     if (fullRange <= 0) return
     const xScale = chart.scales.x
