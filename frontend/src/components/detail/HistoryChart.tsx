@@ -18,7 +18,7 @@ interface Props {
 function buildPointData(data: HistoryPoint[]) {
   return {
     labels: data.map((p) => p.timestamp * 1000),
-    values: data.map((p) => p.player_count),
+    values: data.map((p) => p.online ? p.player_count : null as number | null),
   }
 }
 
@@ -91,7 +91,7 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
       const ctx = canvasRef.current!.getContext('2d')!
       chartRef.current = new Chart(ctx, {
         type: 'line',
-        data: { datasets: [{ data: pointData, label: '在线玩家', borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 7, pointBackgroundColor: '#6366f1', pointHoverBackgroundColor: '#f59e0b', borderWidth: 1.5 }] },
+        data: { datasets: [{ data: pointData, label: '在线玩家', borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 7, pointBackgroundColor: '#6366f1', pointHoverBackgroundColor: '#f59e0b', borderWidth: 1.5, spanGaps: false }] },
         options: {
           responsive: true, maintainAspectRatio: false, parsing: false,
           animation: { duration: 400, easing: 'easeOutQuart' },
@@ -99,7 +99,7 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
           plugins: {
             legend: { display: false },
             decimation: { enabled: true, algorithm: 'lttb', samples: 400 },
-            tooltip: { callbacks: { title: tooltipTitle as unknown as () => string, label: (ctx: { parsed: { y: number | null } }) => `在线: ${ctx.parsed.y ?? 0} 人` } },
+            tooltip: { callbacks: { title: tooltipTitle as unknown as () => string, label: (ctx: { parsed: { y: number | null } }) => ctx.parsed.y != null ? `在线: ${ctx.parsed.y} 人` : '服务器离线' } },
             zoom: { zoom: { wheel: { enabled: !isR }, drag: { enabled: !isR, backgroundColor: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }, pinch: { enabled: !isR }, mode: 'x' as const }, limits: { x: { min: fullMin, max: fullMax, minRange: 60000 } } },
           },
           scales: {
