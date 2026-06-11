@@ -16,7 +16,7 @@ export function DetailPage() {
   const popNav = useUIStore((s) => s.popNavigation)
   const setCurrentPage = useUIStore((s) => s.setCurrentPage)
 
-  const server = statuses.find((x) => x.id === detailServerId)
+  const server = statuses.find((x) => x.server_id === detailServerId)
   const [range, setRange] = useState('15m')
   const [customStart, setCustomStart] = useState<number | undefined>()
   const [customEnd, setCustomEnd] = useState<number | undefined>()
@@ -89,7 +89,7 @@ export function DetailPage() {
         <div className="mt-4">
           <HistoryChart
             key={`${chartKeyRef.current}`}
-            serverId={server.id}
+            serverId={server.server_id}
             range={range}
             startTs={customStart}
             endTs={customEnd}

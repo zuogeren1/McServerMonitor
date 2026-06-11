@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function ServerInfoPanel({ server: s }: Props) {
-  const addr = fmtAddr(s.active_host ?? s.host, s.active_port ?? s.port)
+  const addr = fmtAddr(s.active_host ?? '', s.active_port)
   const [copied, setCopied] = useState(false)
 
   const copyAddr = useCallback(async () => {
@@ -25,7 +25,7 @@ export function ServerInfoPanel({ server: s }: Props) {
     <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">
-          {esc(s.name)}
+          {esc(s.server_name)}
           {' '}
           <Badge variant={s.server_type === 'bedrock' ? 'secondary' : 'default'} className="text-xs">
             {s.server_type === 'bedrock' ? '基岩' : 'Java'}

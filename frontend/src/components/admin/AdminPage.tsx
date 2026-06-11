@@ -56,18 +56,16 @@ function ServerForm({ form, setForm, onSave }: {
     if (!validate()) return
     setSaving(true)
     try {
-      const data: Partial<ServerConfig> = {
+      await saveServer({
         id: form.editingId ?? undefined,
         name: form.name.trim(),
         server_type: form.serverType,
-        host: form.host.trim(),
-        port: form.port,
+        primary_host: form.host.trim(),
+        primary_port: form.port,
         rcon_host: form.serverType === 'java' && form.rconHost ? form.rconHost.trim() : null,
         rcon_port: form.serverType === 'java' && form.rconHost ? form.rconPort : null,
         rcon_password: form.serverType === 'java' && form.rconHost ? form.rconPassword : null,
-        backup_addresses: [],
-      }
-      await saveServer(data)
+      })
       setForm(EMPTY_FORM)
       setErrors({})
       onSave()
@@ -150,7 +148,7 @@ function ServerList({ servers, onEdit, onDelete }: {
           <div key={s.id} className="flex items-center justify-between p-3 rounded bg-(--color-hover)">
             <div>
               <span className="font-medium text-sm">{esc(s.name)}</span>
-              <span className="text-xs text-(--color-muted) ml-2">{s.host}:{s.port}</span>
+              <span className="text-xs text-(--color-muted) ml-2">{s.primary_host}:{s.primary_port}</span>
             </div>
             <div className="flex gap-1">
               <Button variant="outline" size="sm" onClick={() => onEdit(s)}>编辑</Button>
@@ -282,7 +280,7 @@ export function AdminPage() {
       <h2 className="text-xl font-bold mb-6">管理</h2>
       <ServerForm form={form} setForm={setForm} onSave={loadServers} />
       <div className="my-8 border-t border-(--color-border)" />
-      <ServerList servers={servers} onEdit={(s) => setForm({ name: s.name, serverType: s.server_type, host: s.host, port: s.port, rconHost: s.rcon_host ?? '', rconPort: s.rcon_port ?? 25575, rconPassword: s.rcon_password ?? '', editingId: s.id })} onDelete={handleDelete} />
+      <ServerList servers={servers} onEdit={(s) => setForm({ name: s.name, serverType: s.server_type, host: s.primary_host, port: s.primary_port, rconHost: s.rcon_host ?? '', rconPort: s.rcon_port ?? 25575, rconPassword: '', editingId: s.id })} onDelete={handleDelete} />
       <div className="my-8 border-t border-(--color-border)" />
       <SettingsSection />
       <div className="my-8 border-t border-(--color-border)" />

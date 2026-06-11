@@ -18,7 +18,7 @@ export function ServersPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {statuses.map((s) => (
-            <ServerCard key={s.id} server={s} showMotd />
+            <ServerCard key={s.server_id} server={s} showMotd />
           ))}
         </div>
       )}

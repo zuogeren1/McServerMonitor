@@ -53,22 +53,27 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 // ---- Types ----
 
 export interface ServerStatus {
-  id: number
-  name: string
+  server_id: number
+  server_name: string
   server_type: 'java' | 'bedrock'
   online: boolean
-  players_online: number
-  players_max: number
+  players: { online: number; max: number; list: { name: string; id: string | null }[] }
   latency: number | null
   version: string | null
   error: string | null
   motd_html: string | null
-  host: string
-  port: number
+  motd: string | null
+  host?: string
+  port?: number
   has_rcon: boolean
   active_host: string | null
   active_port: number | null
   backup_statuses: BackupStatus[]
+  icon?: string | null
+  map_name?: string
+  gamemode?: string
+  brand?: string
+  protocol?: number | null
 }
 
 export interface BackupStatus {
@@ -83,14 +88,13 @@ export interface BackupStatus {
 export interface ServerConfig {
   id: number
   name: string
+  primary_host: string
+  primary_port: number
   server_type: 'java' | 'bedrock'
-  host: string
-  port: number
   rcon_host: string | null
   rcon_port: number | null
-  rcon_password: string | null
   has_rcon: boolean
-  backup_addresses: BackupAddress[]
+  backups: BackupAddress[]
 }
 
 export interface BackupAddress {
@@ -174,7 +178,7 @@ export function fetchServerConfig(sid: number): Promise<ServerConfig> {
   return apiFetch<ServerConfig>(`/api/servers/${sid}`)
 }
 
-export function saveServer(data: Partial<ServerConfig>): Promise<{ id: number }> {
+export function saveServer(data: Record<string, unknown>): Promise<{ id: number }> {
   if (data.id) {
     return apiFetch<{ id: number }>(`/api/servers/${data.id}`, {
       method: 'PUT',

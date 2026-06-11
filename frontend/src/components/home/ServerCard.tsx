@@ -16,8 +16,8 @@ export function ServerCard({ server: s, showMotd }: Props) {
   const setDetailServerId = useServerStore((s) => s.setDetailServerId)
 
   const openDetail = () => {
-    pushNav({ page: 'detail', detailServerId: s.id })
-    setDetailServerId(s.id)
+    pushNav({ page: 'detail', detailServerId: s.server_id })
+    setDetailServerId(s.server_id)
     setCurrentPage('detail')
   }
 
@@ -39,13 +39,13 @@ export function ServerCard({ server: s, showMotd }: Props) {
         <div className="flex items-start justify-between mb-3">
           <div className="min-w-0 flex-1">
             <div className="font-medium truncate flex items-center gap-2">
-              {esc(s.name)}
+              {esc(s.server_name)}
               <Badge variant={s.server_type === 'bedrock' ? 'secondary' : 'default'} className="text-xs shrink-0">
                 {s.server_type === 'bedrock' ? '基岩' : 'Java'}
               </Badge>
             </div>
             <div className="text-xs text-(--color-muted) mt-0.5">
-              {fmtAddr(s.active_host ?? s.host, s.active_port ?? s.port)}
+              {fmtAddr(s.active_host ?? '', s.active_port)}
             </div>
           </div>
           <Badge
@@ -71,7 +71,7 @@ export function ServerCard({ server: s, showMotd }: Props) {
           </div>
           <div>
             <div className="text-xs text-(--color-muted)">玩家</div>
-            <div>{s.players_online} / {s.players_max}</div>
+            <div>{s.players.online} / {s.players.max}</div>
           </div>
         </div>
 

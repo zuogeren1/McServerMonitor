@@ -32,18 +32,15 @@ function checkNotifications(
   current: ReturnType<typeof useServerStore.getState>['statuses'],
   previous: ReturnType<typeof useServerStore.getState>['statuses']
 ) {
-  // 通知逻辑——从原 app.js 迁移
-  // 使用 socket.ts 模块级 _offlineCounts / _offlineNotified
-  // 详细实现将在阶段 5 完善
   void previous
   for (const s of current) {
     if (!s.online) {
-      const count = (_offlineCounts.get(s.id) ?? 0) + 1
-      _offlineCounts.set(s.id, count)
+      const count = (_offlineCounts.get(s.server_id) ?? 0) + 1
+      _offlineCounts.set(s.server_id, count)
     } else {
-      _offlineCounts.set(s.id, 0)
-      if (_offlineNotified.has(s.id)) {
-        _offlineNotified.delete(s.id)
+      _offlineCounts.set(s.server_id, 0)
+      if (_offlineNotified.has(s.server_id)) {
+        _offlineNotified.delete(s.server_id)
       }
     }
   }

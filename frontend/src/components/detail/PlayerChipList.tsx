@@ -13,13 +13,13 @@ export function PlayerChipList({ server: s }: Props) {
   return (
     <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4">
       <h3 className="font-semibold mb-3">
-        在线玩家 <span className="text-(--color-muted) font-normal">({s.players_online} / {s.players_max})</span>
+        在线玩家 <span className="text-(--color-muted) font-normal">({s.players.online} / {s.players.max})</span>
       </h3>
-      {s.players_online === 0 ? (
+      {s.players.online === 0 ? (
         <p className="text-sm text-(--color-muted)">暂无在线玩家</p>
       ) : (
         <p className="text-sm text-(--color-muted)">
-          {s.players_online} 名玩家在线
+          {s.players.online} 名玩家在线
           <br />
           <span className="text-xs">点击玩家名称可在图表中查看详情</span>
         </p>

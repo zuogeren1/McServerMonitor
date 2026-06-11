@@ -3,7 +3,7 @@ import { useServerStore } from '@/store/useServerStore'
 export function StatsBar() {
   const statuses = useServerStore((s) => s.statuses)
   const total = statuses.length
-  const online = statuses.filter((s) => s.online).length
+  const online = statuses.filter((s: { online: boolean }) => s.online).length
 
   return (
     <div className="flex gap-4 mb-6">

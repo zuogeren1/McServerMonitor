@@ -56,16 +56,16 @@ function useNotificationSystem() {
     for (const s of current) {
       // 服务器上线/离线通知
       if (!s.online) {
-        const count = (_offlineCounts.get(s.id) ?? 0) + 1
-        _offlineCounts.set(s.id, count)
+        const count = (_offlineCounts.get(s.server_id) ?? 0) + 1
+        _offlineCounts.set(s.server_id, count)
       } else {
-        _offlineCounts.set(s.id, 0)
+        _offlineCounts.set(s.server_id, 0)
         if (serverNotifEnabled.current && prev.length > 0) {
-          const prevS = prev.find((x) => x.id === s.id)
-          if (prevS && !prevS.online && _offlineNotified.has(s.id)) {
-            notify(`${s.name} 已上线`, { body: `服务器已恢复在线`, icon: '/favicon.svg' })
+          const prevS = prev.find((x) => x.server_id === s.server_id)
+          if (prevS && !prevS.online && _offlineNotified.has(s.server_id)) {
+            notify(`${s.server_name} 已上线`, { body: `服务器已恢复在线`, icon: '/favicon.svg' })
           }
-          _offlineNotified.delete(s.id)
+          _offlineNotified.delete(s.server_id)
         }
       }
     }
