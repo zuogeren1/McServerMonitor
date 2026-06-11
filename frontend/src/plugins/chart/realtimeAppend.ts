@@ -7,9 +7,8 @@ export async function appendRealtimeData(
 ): Promise<void> {
   if (!chart) return
   try {
-    const resp = await fetchHistory(serverId, '15m')
-    const newData = resp.data
-    if (!newData || newData.length === 0) return
+    const data = await fetchHistory(serverId, '15m')
+    if (!Array.isArray(data) || data.length === 0) return
 
     const dataset = chart.data.datasets[0]
     if (!dataset) return
@@ -18,12 +17,12 @@ export async function appendRealtimeData(
       (dataset.data as { x: number; y: number }[]).map((d) => d.x)
     )
 
-    for (const point of newData) {
-      const ts = new Date(point.ts).getTime()
+    for (const point of data) {
+      const ts = point.timestamp * 1000
       if (!existingTimestamps.has(ts)) {
         ;(dataset.data as { x: number; y: number }[]).push({
           x: ts,
-          y: point.players_online,
+          y: point.player_count,
         })
       }
     }

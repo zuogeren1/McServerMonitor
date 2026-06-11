@@ -4,7 +4,7 @@ import type { AnyChartInstance } from '@/plugins/chart/types'
 import { crosshairPlugin } from '@/plugins/chart/crosshair'
 import { scrollbarSyncPlugin, setChartBounds, setScrollbarCallback } from '@/plugins/chart/scrollbarSync'
 import { appendRealtimeData } from '@/plugins/chart/realtimeAppend'
-import { fetchHistory, fetchPlayerListAtTime, type HistoryResponse } from '@/lib/api'
+import { fetchHistory, fetchPlayerListAtTime, type HistoryPoint } from '@/lib/api'
 import { ChartScrollbar } from './ChartScrollbar'
 
 interface Props {
@@ -30,7 +30,7 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
       chartRef.current = null
     }
 
-    let data: HistoryResponse
+    let data: HistoryPoint[]
     let showDate = true
 
     if (range === 'custom' && startTs && endTs) {
@@ -41,14 +41,10 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
       showDate = range !== '15m' && range !== '1h'
     }
 
-    const rawPoints: { ts: unknown; players_online: number }[] = data.data || []
-    const labels = rawPoints.map((p) => {
-      const ts = p.ts
-      if (typeof ts === 'number') return ts * 1000
-      if (typeof ts === 'string') return new Date(ts).getTime()
-      return 0
-    })
-    const values = rawPoints.map((p) => p.players_online)
+    if (!Array.isArray(data) || data.length === 0) return
+
+    const labels = data.map((p) => p.timestamp * 1000)
+    const values = data.map((p) => p.player_count)
     const fullMin = labels.length > 0 ? labels[0] : 0
     const fullMax = labels.length > 0 ? labels[labels.length - 1] : 0
     setFullRange({ min: fullMin, max: fullMax })

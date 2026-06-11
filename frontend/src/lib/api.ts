@@ -105,15 +105,14 @@ export interface BackupAddress {
 }
 
 export interface HistoryPoint {
-  ts: string
-  players_online: number
+  timestamp: number
+  online: boolean
+  player_count: number
+  player_list: string[]
+  latency: number | null
 }
 
-export interface HistoryResponse {
-  data: HistoryPoint[]
-  full_min: string | null
-  full_max: string | null
-}
+export type HistoryResponse = HistoryPoint[]
 
 export interface PlayerInfo {
   name: string
@@ -216,13 +215,13 @@ export function fetchHistory(
   range?: string,
   start?: string,
   end?: string
-): Promise<HistoryResponse> {
+): Promise<HistoryPoint[]> {
   if (start && end) {
-    return apiFetch<HistoryResponse>(
+    return apiFetch<HistoryPoint[]>(
       `/api/servers/${sid}/history?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
     )
   }
-  return apiFetch<HistoryResponse>(`/api/servers/${sid}/history?range=${range ?? '15m'}`)
+  return apiFetch<HistoryPoint[]>(`/api/servers/${sid}/history?range=${range ?? '15m'}`)
 }
 
 export function fetchPlayerListAtTime(
