@@ -41,9 +41,13 @@ export function ServerCard({ server: s, showMotd }: Props) {
           <div className="min-w-0 flex-1">
             <div className="font-semibold text-base truncate flex items-center gap-2">
               {esc(s.server_name)}
-              <Badge variant="outline" className="text-xs shrink-0 ring-1 ring-(--color-accent) bg-(--color-accent)/10 text-(--color-accent) border-0">
-                {s.server_type === 'bedrock' ? '基岩' : 'Java'}
-              </Badge>
+              <Badge
+  className={`text-xs shrink-0 font-bold border-0 py-0.5 px-1.5 rounded ${s.server_type === 'bedrock' ? 'type-badge-bedrock' : 'type-badge-java'}`}
+  style={s.server_type === 'bedrock'
+    ? { background: '#1e3a5f', color: '#60a5fa' }
+    : { background: '#422006', color: '#fbbf24' }}>
+  {s.server_type === 'bedrock' ? '基岩' : 'Java'}
+</Badge>
             </div>
             <div className="text-xs text-(--color-muted) mt-0.5">
               {fmtAddr(s.active_host ?? '', s.active_port)}

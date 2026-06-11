@@ -27,9 +27,13 @@ export function ServerInfoPanel({ server: s }: Props) {
         <h3 className="font-semibold text-lg">
           {esc(s.server_name)}
           {' '}
-          <Badge variant="outline" className="text-xs ring-1 ring-(--color-accent) bg-(--color-accent)/10 text-(--color-accent) border-0">
-            {s.server_type === 'bedrock' ? '基岩' : 'Java'}
-          </Badge>
+          <Badge
+          className={`text-xs font-bold border-0 py-0.5 px-1.5 rounded ${s.server_type === 'bedrock' ? 'type-badge-bedrock' : 'type-badge-java'}`}
+          style={s.server_type === 'bedrock'
+            ? { background: '#1e3a5f', color: '#60a5fa' }
+            : { background: '#422006', color: '#fbbf24' }}>
+          {s.server_type === 'bedrock' ? '基岩' : 'Java'}
+        </Badge>
         </h3>
         <Badge
           variant="outline"

@@ -26,6 +26,16 @@
   --color-border: #e2e8f0;
 }
 
+[data-theme="light"] .type-badge-java {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+[data-theme="light"] .type-badge-bedrock {
+  background: #dbeafe !important;
+  color: #1e40af !important;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
