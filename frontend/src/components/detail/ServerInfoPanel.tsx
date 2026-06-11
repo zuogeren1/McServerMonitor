@@ -53,15 +53,15 @@ export function ServerInfoPanel({ server: s }: Props) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-y-1 text-sm">
+      <div className="grid grid-cols-2 gap-2 text-sm">
         <div><span className="text-(--color-muted)">延迟：</span>{s.latency != null ? `${s.latency} ms` : '--'}</div>
         <div><span className="text-(--color-muted)">版本：</span>{s.version || '--'}</div>
-        <div><span className="text-(--color-muted)">协议：</span>{s.version || '--'}</div>
       </div>
 
       {s.motd_html && (
         <div
           className="text-xs font-mono whitespace-pre-wrap break-words p-2 rounded bg-(--color-hover)"
+          style={{ fontFamily: "'Consolas','Courier New',monospace" }}
           dangerouslySetInnerHTML={{ __html: s.motd_html }}
         />
       )}
