@@ -40,7 +40,7 @@ export function ChartScrollbar({ chartRef, leftPct, widthPct, onPan, fullMin, fu
     const onDragStart = (e: MouseEvent | TouchEvent) => {
       dragging.current = true
       startX.current = getClientX(e)
-      startLeftPct.current = parseFloat(thumb.style.left || '0')
+      startLeftPct.current = parseFloat(thumb.style.left) || 0
       e.preventDefault()
       e.stopPropagation()
     }
@@ -93,11 +93,12 @@ export function ChartScrollbar({ chartRef, leftPct, widthPct, onPan, fullMin, fu
   }, [getClientX, applyPan])
 
   return (
-    <div className="h-4 mt-2 bg-(--color-hover) rounded cursor-pointer" ref={trackRef}>
+    <div className="h-4 mt-2 bg-(--color-hover) rounded cursor-pointer relative" ref={trackRef}
+      onMouseDown={(e) => e.stopPropagation()}>
       <div
         ref={thumbRef}
-        className="h-full bg-(--color-accent)/30 rounded hover:bg-(--color-accent)/50 transition-colors"
-        style={{ width: `${widthPct}%`, marginLeft: `${leftPct}%` }}
+        className="h-full bg-(--color-accent)/30 rounded hover:bg-(--color-accent)/50 transition-colors absolute"
+        style={{ width: `${widthPct}%`, left: `${leftPct}%` }}
       />
     </div>
   )
