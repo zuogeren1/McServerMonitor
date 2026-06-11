@@ -12,7 +12,7 @@ export function MobileMenu() {
   return (
     <button
       onClick={() => toggleSidebar(!collapsed)}
-      className="fixed top-3 left-3 z-30 p-2 rounded-md bg-(--color-card) border border-(--color-border) text-(--color-text) hover:bg-(--color-hover) transition-colors"
+      className="fixed top-3 left-3 z-30 p-2 rounded-md bg-(--color-card) border border-(--color-border) text-(--color-text) hover:bg-white/10 transition-colors"
       title="菜单"
     >
       <Menu size={20} />

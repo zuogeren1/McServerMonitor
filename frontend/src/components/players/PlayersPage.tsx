@@ -93,7 +93,7 @@ export function PlayersPage() {
         {filteredRegular.map((p) => (
           <div
             key={p.name}
-            className="flex items-center gap-3 px-3 py-2 rounded hover:bg-(--color-hover) cursor-pointer transition-colors"
+            className="flex items-center gap-3 px-3 py-2 rounded hover:bg-white/10 cursor-pointer transition-colors"
             onClick={() => openDetail(p.name)}
           >
             <img src={avatarUrl(p.uuid, p.name)} alt="" className="w-8 h-8 rounded" onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(null, '') }} />

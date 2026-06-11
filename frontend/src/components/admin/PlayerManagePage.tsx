@@ -49,7 +49,7 @@ export function PlayerManagePage() {
       ) : (
         <div className="space-y-1">
           {filtered.map((p) => (
-            <div key={p.name} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-(--color-hover)">
+            <div key={p.name} className="flex items-center gap-3 px-3 py-2 rounded hover:bg-white/10">
               <img src={avatarUrl(p.uuid, p.name)} alt="" className="w-8 h-8 rounded" onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(null, '') }} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{esc(p.name)}</div>

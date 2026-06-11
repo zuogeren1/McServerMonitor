@@ -32,7 +32,7 @@ export function PlayerChip({ name, uuid, onClick }: { name: string; uuid?: strin
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-(--color-hover) transition-colors text-sm"
+      className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/10 transition-colors text-sm"
     >
       <img
         src={avatarUrl(uuid ?? null, name)}

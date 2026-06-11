@@ -120,7 +120,7 @@ export function DetailPage() {
                 <button
                   key={p.name}
                   onClick={() => openPlayerDetail(p.name)}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-(--color-hover) transition-colors text-sm"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors text-sm hover:bg-white/10"
                   title="点击查看玩家详情"
                 >
                   <img src={avatarUrl(null, p.name)} alt="" className="w-5 h-5 rounded" onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(null, '') }} />
@@ -130,7 +130,7 @@ export function DetailPage() {
               {anonCount > 0 && (
                 <button
                   onClick={() => openPlayerDetail('Anonymous Player')}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-(--color-hover) transition-colors text-sm opacity-70"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors text-sm hover:bg-white/10 opacity-70"
                   title="点击查看匿名玩家详情"
                 >
                   <span>Anonymous Player x{anonCount}</span>
