@@ -27,7 +27,7 @@ export function ServerInfoPanel({ server: s }: Props) {
         <h3 className="font-semibold text-lg">
           {esc(s.server_name)}
           {' '}
-          <Badge variant={s.server_type === 'bedrock' ? 'secondary' : 'default'} className="text-xs">
+          <Badge variant="outline" className="text-xs ring-1 ring-(--color-accent) bg-(--color-accent)/10 text-(--color-accent) border-0">
             {s.server_type === 'bedrock' ? '基岩' : 'Java'}
           </Badge>
         </h3>
