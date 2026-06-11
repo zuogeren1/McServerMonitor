@@ -20,38 +20,25 @@ export function DetailPage() {
 
   const server = statuses.find((x) => x.server_id === detailServerId)
 
-  // 检查是否有来自玩家详情页跳转的自定义范围
-  const [range, setRange] = useState(() => {
-    const stored = sessionStorage.getItem('detailCustomRange')
-    if (stored) {
-      try {
-        const { startTs, endTs } = JSON.parse(stored)
-        if (startTs && endTs) { sessionStorage.removeItem('detailCustomRange'); return 'custom' }
-      } catch { /* */ }
-    }
-    return '15m'
-  })
-  const [customStart, setCustomStart] = useState<number | undefined>(() => {
-    const stored = sessionStorage.getItem('detailCustomRange')
-    if (stored) {
-      try {
-        const { startTs } = JSON.parse(stored)
-        if (startTs) return startTs
-      } catch { /* */ }
-    }
-    return undefined
-  })
-  const [customEnd, setCustomEnd] = useState<number | undefined>(() => {
-    const stored = sessionStorage.getItem('detailCustomRange')
-    if (stored) {
-      try {
-        const { endTs } = JSON.parse(stored)
-        if (endTs) return endTs
-      } catch { /* */ }
-    }
-    return undefined
-  })
+  const [range, setRange] = useState('15m')
+  const [customStart, setCustomStart] = useState<number | undefined>()
+  const [customEnd, setCustomEnd] = useState<number | undefined>()
   const [pinned, setPinned] = useState<{ ts: number; players: string[] } | null>(null)
+
+  // 监听 detailServerId——当玩家详情页跳转过来时读取 sessionStorage 自定义范围
+  useEffect(() => {
+    const stored = sessionStorage.getItem('detailCustomRange')
+    if (!stored) return
+    try {
+      const { startTs, endTs } = JSON.parse(stored)
+      if (startTs && endTs) {
+        sessionStorage.removeItem('detailCustomRange')
+        setRange('custom')
+        setCustomStart(startTs)
+        setCustomEnd(endTs)
+      }
+    } catch { /* */ }
+  }, [detailServerId])
   const [chartKey, setChartKey] = useState(0)
 
   const handleBack = () => {
