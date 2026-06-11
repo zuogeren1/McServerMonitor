@@ -73,8 +73,12 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
         xOpts.min = isR ? undefined : fullMin
         xOpts.max = isR ? undefined : fullMax
         if (c.options.scales!.y) (c.options.scales!.y as Record<string, unknown>).max = yMax
-        if (c.options.plugins?.zoom) {
-          ;(c.options.plugins.zoom as Record<string, unknown>).limits = { x: { min: fullMin, max: fullMax, minRange: 60000 } }
+        const zoomOpts = c.options.plugins?.zoom as Record<string, Record<string, unknown>> | undefined
+        if (zoomOpts) {
+          zoomOpts.zoom.wheel = { enabled: !isR }
+          zoomOpts.zoom.drag = { enabled: !isR, backgroundColor: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }
+          zoomOpts.zoom.pinch = { enabled: !isR }
+          zoomOpts.limits = { x: { min: fullMin, max: fullMax, minRange: 60000 } }
         }
         c.update()
         prevRangeRef.current = range
@@ -97,7 +101,7 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
             legend: { display: false },
             decimation: { enabled: true, algorithm: 'lttb', samples: 400 },
             tooltip: { callbacks: { title: tooltipTitle as unknown as () => string, label: (ctx: { parsed: { y: number | null } }) => `在线: ${ctx.parsed.y ?? 0} 人` } },
-            zoom: isR ? undefined : { zoom: { wheel: { enabled: true }, drag: { enabled: true, backgroundColor: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }, pinch: { enabled: true }, mode: 'x' }, limits: { x: { min: fullMin, max: fullMax, minRange: 60000 } } },
+            zoom: { zoom: { wheel: { enabled: !isR }, drag: { enabled: !isR, backgroundColor: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }, pinch: { enabled: !isR }, mode: 'x' as const }, limits: { x: { min: fullMin, max: fullMax, minRange: 60000 } } },
           },
           scales: {
             x: { type: 'time', time: { tooltipFormat: showDate ? 'MM-dd HH:mm:ss' : 'HH:mm:ss', displayFormats: showDate ? { second: 'MM-dd HH:mm:ss', minute: 'MM-dd HH:mm', hour: 'MM-dd HH:mm', day: 'MM-dd' } : { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm' } }, ...(isR ? {} : { min: fullMin, max: fullMax }), ticks: { color: '#94a3b8', maxTicksLimit: 20, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },

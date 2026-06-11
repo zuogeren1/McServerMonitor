@@ -37,6 +37,7 @@ export function RangeSelector({ range, onRangeChange }: Props) {
           key={r.value}
           variant={range === r.value ? 'default' : 'outline'}
           size="sm"
+          className={range === r.value ? 'bg-(--color-accent) hover:bg-(--color-accent-hover) text-white' : ''}
           onClick={() => {
             setShowCustom(false)
             onRangeChange(r.value)

@@ -14,7 +14,7 @@ import {
   type AppConfig,
 } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
-import { esc } from '@/lib/utils'
+import { esc, fmtAddr } from '@/lib/utils'
 
 // ---- Form Data ----
 interface ServerFormData {
@@ -148,7 +148,7 @@ function ServerList({ servers, onEdit, onDelete }: {
           <div key={s.id} className="flex items-center justify-between p-3 rounded bg-(--color-hover)">
             <div>
               <span className="font-medium text-sm">{esc(s.name)}</span>
-              <span className="text-xs text-(--color-muted) ml-2">{s.primary_host}:{s.primary_port}</span>
+              <span className="text-xs text-(--color-muted) ml-2">{fmtAddr(s.primary_host, s.primary_port)}</span>
             </div>
             <div className="flex gap-1">
               <Button variant="outline" size="sm" onClick={() => onEdit(s)}>编辑</Button>

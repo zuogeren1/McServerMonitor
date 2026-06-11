@@ -19,9 +19,38 @@ export function DetailPage() {
   const setDetailName = usePlayerStore((s) => s.setDetailName)
 
   const server = statuses.find((x) => x.server_id === detailServerId)
-  const [range, setRange] = useState('15m')
-  const [customStart, setCustomStart] = useState<number | undefined>()
-  const [customEnd, setCustomEnd] = useState<number | undefined>()
+
+  // 检查是否有来自玩家详情页跳转的自定义范围
+  const [range, setRange] = useState(() => {
+    const stored = sessionStorage.getItem('detailCustomRange')
+    if (stored) {
+      try {
+        const { startTs, endTs } = JSON.parse(stored)
+        if (startTs && endTs) { sessionStorage.removeItem('detailCustomRange'); return 'custom' }
+      } catch { /* */ }
+    }
+    return '15m'
+  })
+  const [customStart, setCustomStart] = useState<number | undefined>(() => {
+    const stored = sessionStorage.getItem('detailCustomRange')
+    if (stored) {
+      try {
+        const { startTs } = JSON.parse(stored)
+        if (startTs) return startTs
+      } catch { /* */ }
+    }
+    return undefined
+  })
+  const [customEnd, setCustomEnd] = useState<number | undefined>(() => {
+    const stored = sessionStorage.getItem('detailCustomRange')
+    if (stored) {
+      try {
+        const { endTs } = JSON.parse(stored)
+        if (endTs) return endTs
+      } catch { /* */ }
+    }
+    return undefined
+  })
   const [pinned, setPinned] = useState<{ ts: number; players: string[] } | null>(null)
 
   const handleBack = () => {

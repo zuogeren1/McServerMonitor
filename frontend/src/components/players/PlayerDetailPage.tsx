@@ -110,6 +110,14 @@ export function PlayerDetailPage() {
     setCurrentPage('detail')
   }
 
+  const openServerRange = (serverId: number, startTs: number, endTs: number) => {
+    pushNav({ page: 'detail', detailServerId: serverId })
+    setDetailServerId(serverId)
+    setCurrentPage('detail')
+    // 通过 sessionStorage 传递自定义范围，DetailPage 读取后清除
+    sessionStorage.setItem('detailCustomRange', JSON.stringify({ startTs, endTs }))
+  }
+
   if (loading) return <div className="p-6 text-(--color-muted)">加载中...</div>
   if (!player) return (
     <div className="p-6">
@@ -153,16 +161,27 @@ export function PlayerDetailPage() {
         <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4">
           <h3 className="font-semibold mb-2">最近游玩服务器</h3>
           <div className="space-y-1 text-sm">
-            {player.recent_servers.map((rs, i) => (
-              <div key={i} className="flex justify-between">
-                <span className="cursor-pointer hover:text-(--color-accent)" onClick={() => openServer(rs.server_id)}>
-                  {esc(rs.server_name)}
-                </span>
-                <span className="text-(--color-muted)">
-                  {new Date(rs.login_time * 1000).toLocaleString('zh-CN')}
-                </span>
-              </div>
-            ))}
+            {player.recent_servers.map((rs, i) => {
+              const startStr = new Date(rs.login_time * 1000).toLocaleString('zh-CN')
+              const endStr = rs.logout_time
+                ? new Date(rs.logout_time * 1000).toLocaleString('zh-CN')
+                : '现在'
+              const endTs = rs.logout_time || Math.floor(Date.now() / 1000)
+              return (
+                <div key={i} className="flex justify-between items-center">
+                  <span className="cursor-pointer hover:text-(--color-accent)" onClick={() => openServer(rs.server_id)}>
+                    {esc(rs.server_name)}
+                  </span>
+                  <span
+                    className="text-(--color-muted) cursor-pointer hover:text-(--color-accent)"
+                    onClick={() => openServerRange(rs.server_id, rs.login_time, endTs)}
+                    title="点击查看此时段折线图"
+                  >
+                    {startStr} ~ {endStr}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
