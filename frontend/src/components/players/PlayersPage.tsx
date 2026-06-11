@@ -79,7 +79,11 @@ export function PlayersPage() {
       {filteredAnonymous.length > 0 && (
         <div className="mb-4 p-3 rounded border border-(--color-border) bg-(--color-hover)">
           {filteredAnonymous.map((p) => (
-            <div key={p.name} className="flex items-center gap-3 px-2 py-1">
+            <div
+              key={p.name}
+              className="flex items-center gap-3 px-2 py-1 rounded cursor-pointer hover:bg-white/10 transition-colors"
+              onClick={() => openDetail(p.name)}
+            >
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium">{esc(p.name)}</span>
               </div>
