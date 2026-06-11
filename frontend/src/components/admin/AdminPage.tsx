@@ -259,8 +259,8 @@ export function AdminPage() {
     fetchServers().then(setServers).catch(() => {})
   }
   useEffect(() => {
-    if (!serversLoaded && loggedIn) { loadServers(); setServersLoaded(true) }
-  }, [loggedIn, serversLoaded])
+    if (!serversLoaded && (!requireLogin || loggedIn)) { loadServers(); setServersLoaded(true) }
+  }, [loggedIn, serversLoaded, requireLogin])
 
   const handleDelete = async (s: ServerConfig) => {
     if (!confirm(`确定删除 "${s.name}"？`)) return
