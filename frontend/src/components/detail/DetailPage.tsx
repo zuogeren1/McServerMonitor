@@ -6,7 +6,7 @@ import { RangeSelector } from './RangeSelector'
 import { HistoryChart } from './HistoryChart'
 import { ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { avatarUrl, esc } from '@/lib/utils'
 import { usePlayerStore } from '@/store/usePlayerStore'
 
@@ -59,7 +59,7 @@ export function DetailPage() {
     setCurrentPage(prev?.page ?? 'home')
   }
 
-  const handleRangeChange = (newRange: string, start?: number, end?: number) => {
+  const handleRangeChange = useCallback((newRange: string, start?: number, end?: number) => {
     setPinned(null)
     setRange(newRange)
     if (newRange === 'custom' && start && end) {
@@ -69,11 +69,11 @@ export function DetailPage() {
       setCustomStart(undefined)
       setCustomEnd(undefined)
     }
-  }
+  }, [])
 
-  const handlePointClick = (ts: number, players: string[]) => {
+  const handlePointClick = useCallback((ts: number, players: string[]) => {
     setPinned(ts ? { ts, players } : null)
-  }
+  }, [])
 
   const openPlayerDetail = (name: string) => {
     pushNav({ page: 'player-detail' })
