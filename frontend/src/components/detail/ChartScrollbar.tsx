@@ -45,11 +45,18 @@ export function ChartScrollbar({ chartRef, leftPct, widthPct, onPan, fullMin, fu
       e.stopPropagation()
     }
 
+    const getThumbWidth = () => {
+      const w = parseFloat(thumb.style.width)
+      return Number.isFinite(w) && w > 0 ? w : 100
+    }
+
     const onTrackClick = (e: MouseEvent | TouchEvent) => {
       if (e.target === thumb) return
+      e.preventDefault()
+      e.stopPropagation()
       const rect = track.getBoundingClientRect()
       const clickPct = ((getClientX(e) - rect.left) / rect.width) * 100
-      const w = parseFloat(thumb.style.width || '100')
+      const w = getThumbWidth()
       applyPan(Math.max(0, Math.min(100 - w, clickPct - w / 2)))
     }
 
@@ -58,7 +65,7 @@ export function ChartScrollbar({ chartRef, leftPct, widthPct, onPan, fullMin, fu
       e.preventDefault()
       const rect = track.getBoundingClientRect()
       const dxPct = ((getClientX(e) - startX.current) / rect.width) * 100
-      const w = parseFloat(thumb.style.width || '100')
+      const w = getThumbWidth()
       applyPan(Math.max(0, Math.min(100 - w, startLeftPct.current + dxPct)))
     }
 
