@@ -15,182 +15,134 @@ interface Props {
   onPointClick?: (ts: number, players: string[]) => void
 }
 
+function buildPointData(data: HistoryPoint[]) {
+  return {
+    labels: data.map((p) => p.timestamp * 1000),
+    values: data.map((p) => p.player_count),
+  }
+}
+
 export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef = useRef<AnyChartInstance | null>(null)
   const historyDataRef = useRef<HistoryPoint[]>([])
   const [scrollbarPos, setScrollbarPos] = useState({ left: 0, width: 100 })
   const [fullRange, setFullRange] = useState({ min: 0, max: 0 })
+  const prevRangeRef = useRef(range)
 
-  const createOrUpdate = useCallback(async () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  // 加载数据并创建/更新图表
+  useEffect(() => {
+    let cancelled = false
 
-    if (chartRef.current) {
-      chartRef.current.destroy()
-      chartRef.current = null
-    }
+    ;(async () => {
+      let data: HistoryPoint[]
+      let showDate = true
+      if (range === 'custom' && startTs && endTs) {
+        data = await fetchHistory(serverId, undefined, String(startTs), String(endTs))
+        showDate = (endTs - startTs) > 86400
+      } else {
+        data = await fetchHistory(serverId, range)
+        showDate = range !== '15m' && range !== '1h'
+      }
+      if (cancelled || !Array.isArray(data) || data.length === 0) return
 
-    let data: HistoryPoint[]
-    let showDate = true
+      historyDataRef.current = data
+      const { labels, values } = buildPointData(data)
+      const fullMin = labels[0]
+      const fullMax = labels[labels.length - 1]
+      setFullRange({ min: fullMin, max: fullMax })
+      setChartBounds(fullMin, fullMax)
+      const dataMax = Math.max(...values.filter((v) => v != null), 0)
+      const yMax = dataMax === 0 ? 5 : dataMax + Math.max(3, Math.ceil(dataMax * 0.2))
+      const isR = range === '15m'
+      const pointData = labels.map((l, i) => ({ x: l, y: values[i] }))
 
-    if (range === 'custom' && startTs && endTs) {
-      data = await fetchHistory(serverId, undefined, String(startTs), String(endTs))
-      showDate = (endTs - startTs) > 86400
-    } else {
-      data = await fetchHistory(serverId, range)
-      showDate = range !== '15m' && range !== '1h'
-    }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tooltipTitle = (items: any[]) => {
+        const d = new Date(items[0].parsed.x ?? 0)
+        return showDate
+          ? d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          : d.toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      }
 
-    if (!Array.isArray(data) || data.length === 0) return
+      // 已有图表 → 更新数据（保留过渡动画）
+      if (chartRef.current) {
+        const c = chartRef.current
+        c.data.datasets[0].data = pointData
+        const xOpts = c.options.scales!.x!
+        xOpts.min = isR ? undefined : fullMin
+        xOpts.max = isR ? undefined : fullMax
+        if (c.options.scales!.y) (c.options.scales!.y as Record<string, unknown>).max = yMax
+        if (c.options.plugins?.zoom) {
+          ;(c.options.plugins.zoom as Record<string, unknown>).limits = { x: { min: fullMin, max: fullMax, minRange: 60000 } }
+        }
+        c.update()
+        prevRangeRef.current = range
+        return
+      }
 
-    historyDataRef.current = data
+      // 首次创建
+      const activePlugins: Plugin[] = [crosshairPlugin as Plugin]
+      if (!isR) activePlugins.push(scrollbarSyncPlugin as Plugin)
 
-    const labels = data.map((p) => p.timestamp * 1000)
-    const values = data.map((p) => p.player_count)
-    const fullMin = labels.length > 0 ? labels[0] : 0
-    const fullMax = labels.length > 0 ? labels[labels.length - 1] : 0
-    setFullRange({ min: fullMin, max: fullMax })
-    setChartBounds(fullMin, fullMax)
-
-    const dataMax = Math.max(...values.filter((v) => v != null), 0)
-    const yMax = dataMax === 0 ? 5 : dataMax + Math.max(3, Math.ceil(dataMax * 0.2))
-
-    const isRealtime = range === '15m'
-    const activePlugins: Plugin[] = [crosshairPlugin as Plugin]
-    if (!isRealtime) activePlugins.push(scrollbarSyncPlugin as Plugin)
-
-    const ctx = canvas.getContext('2d')!
-    const pointData = labels.map((l, i) => ({ x: l, y: values[i] }))
-
-    const newChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        datasets: [{
-          data: pointData,
-          label: '在线玩家',
-          borderColor: '#6366f1',
-          backgroundColor: 'rgba(99,102,241,0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 2,
-          pointHoverRadius: 7,
-          pointBackgroundColor: '#6366f1',
-          pointHoverBackgroundColor: '#f59e0b',
-          borderWidth: 1.5,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        parsing: false,
-        animation: { duration: 400, easing: 'easeOutQuart' },
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { display: false },
-          decimation: { enabled: true, algorithm: 'lttb', samples: 400 },
-          tooltip: {
-            callbacks: {
-              title: (items) => {
-                const d = new Date(items[0].parsed.x ?? 0)
-                return showDate
-                  ? d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                  : d.toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-              },
-              label: (ctx) => `在线: ${ctx.parsed.y} 人`,
-            },
+      const ctx = canvasRef.current!.getContext('2d')!
+      chartRef.current = new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [{ data: pointData, label: '在线玩家', borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 7, pointBackgroundColor: '#6366f1', pointHoverBackgroundColor: '#f59e0b', borderWidth: 1.5 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, parsing: false,
+          animation: { duration: 400, easing: 'easeOutQuart' },
+          interaction: { mode: 'index' as const, intersect: false },
+          plugins: {
+            legend: { display: false },
+            decimation: { enabled: true, algorithm: 'lttb', samples: 400 },
+            tooltip: { callbacks: { title: tooltipTitle as unknown as () => string, label: (ctx: { parsed: { y: number | null } }) => `在线: ${ctx.parsed.y ?? 0} 人` } },
+            zoom: isR ? undefined : { zoom: { wheel: { enabled: true }, drag: { enabled: true, backgroundColor: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' }, pinch: { enabled: true }, mode: 'x' }, limits: { x: { min: fullMin, max: fullMax, minRange: 60000 } } },
           },
-          zoom: isRealtime ? undefined : {
-            zoom: {
-              wheel: { enabled: true },
-              drag: { enabled: true, backgroundColor: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.3)' },
-              pinch: { enabled: true },
-              mode: 'x',
-            },
-            limits: { x: { min: fullMin, max: fullMax, minRange: 60000 } },
+          scales: {
+            x: { type: 'time', time: { tooltipFormat: showDate ? 'MM-dd HH:mm:ss' : 'HH:mm:ss', displayFormats: showDate ? { second: 'MM-dd HH:mm:ss', minute: 'MM-dd HH:mm', hour: 'MM-dd HH:mm', day: 'MM-dd' } : { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm' } }, ...(isR ? {} : { min: fullMin, max: fullMax }), ticks: { color: '#94a3b8', maxTicksLimit: 20, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+            y: { beginAtZero: true, max: yMax, ticks: { color: '#94a3b8', precision: 0, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          },
+          onClick: async (_event, elements) => {
+            if (elements.length === 0) { onPointClick?.(0, []); return }
+            const el = elements[0].element as { $context?: { parsed: { x: number } } }
+            const tsSec = el.$context?.parsed.x ? el.$context.parsed.x / 1000 : null
+            if (!tsSec) return
+            const pt = historyDataRef.current.find((d) => Math.abs(d.timestamp - tsSec) < 0.5)
+            if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list); return }
+            try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), r.players || []) } catch { /* */ }
           },
         },
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              tooltipFormat: showDate ? 'MM-dd HH:mm:ss' : 'HH:mm:ss',
-              displayFormats: showDate
-                ? { second: 'MM-dd HH:mm:ss', minute: 'MM-dd HH:mm', hour: 'MM-dd HH:mm', day: 'MM-dd' }
-                : { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm' },
-            },
-            ...(isRealtime ? {} : { min: fullMin, max: fullMax }),
-            ticks: { color: '#94a3b8', maxTicksLimit: 20, font: { size: 10 } },
-            grid: { color: 'rgba(255,255,255,0.04)' },
-          },
-          y: {
-            beginAtZero: true,
-            max: yMax,
-            ticks: { color: '#94a3b8', precision: 0, font: { size: 10 } },
-            grid: { color: 'rgba(255,255,255,0.04)' },
-          },
-        },
-        onClick: async (_event, elements) => {
-          if (elements.length === 0) {
-            onPointClick?.(0, [])
-            return
-          }
-          const el = elements[0].element as { $context?: { parsed: { x: number } } }
-          const tsSec = el.$context?.parsed.x ? el.$context.parsed.x / 1000 : null
-          if (!tsSec) return
+        plugins: activePlugins,
+      })
+      setScrollbarCallback((left: number, width: number) => setScrollbarPos({ left, width }))
+      prevRangeRef.current = range
+    })()
 
-          // 优先使用 historyDataRef 中对应时间点的 player_list
-          const point = historyDataRef.current.find(
-            (d) => Math.abs(d.timestamp - tsSec) < 0.5
-          )
-          if (point && point.player_list.length > 0) {
-            onPointClick?.(point.timestamp, point.player_list)
-            return
-          }
-          // 回退到 API 查询（处理聚合数据 bucket 中 player_list 为空的情况）
-          try {
-            const res = await fetchPlayerListAtTime(serverId, String(tsSec))
-            onPointClick?.(Number(tsSec), res.players || [])
-          } catch { /* ignore */ }
-        },
-      },
-      plugins: activePlugins,
-    })
-
-    chartRef.current = newChart
-    setScrollbarCallback((left: number, width: number) => {
-      setScrollbarPos({ left, width })
-    })
+    return () => { cancelled = true }
   }, [serverId, range, startTs, endTs, onPointClick])
 
+  // 组件销毁时清理
   useEffect(() => {
-    createOrUpdate()
     return () => {
       setScrollbarCallback(null)
-      if (chartRef.current) {
-        chartRef.current.destroy()
-        chartRef.current = null
-      }
+      if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
     }
-  }, [createOrUpdate])
+  }, [])
 
+  // 15m 实时轮询
   useEffect(() => {
     if (range !== '15m') return
-    const timer = setInterval(() => {
-      appendRealtimeData(serverId, chartRef.current)
-    }, 5000)
+    const timer = setInterval(() => appendRealtimeData(serverId, chartRef.current), 5000)
     return () => clearInterval(timer)
   }, [serverId, range])
 
-  const handlePan = useCallback(
-    (targetMin: number, targetMax: number, _viewRange: number) => {
-      if (!chartRef.current?.options.scales?.x) return
-      chartRef.current.options.scales.x.min = targetMin
-      chartRef.current.options.scales.x.max = targetMax
-      chartRef.current.update('none')
-    },
-    []
-  )
+  const handlePan = useCallback((targetMin: number, targetMax: number, _vr: number) => {
+    if (!chartRef.current?.options.scales?.x) return
+    chartRef.current.options.scales.x.min = targetMin
+    chartRef.current.options.scales.x.max = targetMax
+    chartRef.current.update('none')
+  }, [])
 
   return (
     <div>
@@ -198,14 +150,7 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
         <canvas ref={canvasRef} />
       </div>
       {range !== '15m' && (
-        <ChartScrollbar
-          chartRef={chartRef}
-          leftPct={scrollbarPos.left}
-          widthPct={scrollbarPos.width}
-          onPan={handlePan}
-          fullMin={fullRange.min}
-          fullMax={fullRange.max}
-        />
+        <ChartScrollbar chartRef={chartRef} leftPct={scrollbarPos.left} widthPct={scrollbarPos.width} onPan={handlePan} fullMin={fullRange.min} fullMax={fullRange.max} />
       )}
     </div>
   )
