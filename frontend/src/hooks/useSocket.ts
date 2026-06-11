@@ -9,17 +9,15 @@ export function useSocket() {
   useEffect(() => {
     const socket = getSocket()
 
-    const handleStatusUpdate = (data: { statuses: ReturnType<typeof useServerStore.getState>['statuses'] }) => {
-      const statuses = data.statuses ?? data
-      setStatuses(statuses)
+    const handleStatusUpdate = (data: unknown) => {
+      // 服务器发送的是 plain array，也可能包在 { statuses: [...] } 中
+      const raw = (data as Record<string, unknown>)?.statuses ?? data
+      const statuses = Array.isArray(raw) ? raw as ReturnType<typeof useServerStore.getState>['statuses'] : []
+      if (!Array.isArray(statuses)) return
 
-      // 通知检查在 status_update 回调里执行
-      // 通知内部计数器（_offlineCounts/_offlineNotified）是 socket.ts 模块级变量
-      // 由 checkNotifications 函数读写，此处预留调用入口
+      setStatuses(statuses)
       checkNotifications(statuses, prevStatusesRef.current)
       prevStatusesRef.current = statuses
-
-      // favicon 更新
       updateFavicon(statuses)
     }
 
