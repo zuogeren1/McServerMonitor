@@ -24,7 +24,7 @@ export function ServerInfoPanel({ server: s }: Props) {
   return (
     <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">
+        <h3 className="font-semibold text-lg">
           {esc(s.server_name)}
           {' '}
           <Badge variant={s.server_type === 'bedrock' ? 'secondary' : 'default'} className="text-xs">
