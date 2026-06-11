@@ -62,7 +62,6 @@ export function DetailPage() {
   const handleRangeChange = (newRange: string, start?: number, end?: number) => {
     setPinned(null)
     setRange(newRange)
-    setChartKey(k => k + 1)
     if (newRange === 'custom' && start && end) {
       setCustomStart(start)
       setCustomEnd(end)

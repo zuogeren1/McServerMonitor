@@ -28,9 +28,9 @@ export function ChartScrollbar({ chartRef, leftPct, widthPct, onPan, fullMin, fu
       const fullRange = fullMax - fullMin
       const viewRange = chartRef.current ? (chartRef.current.scales.x.max - chartRef.current.scales.x.min) : fullRange
       const targetMin = fullMin + (pct / 100) * fullRange
-      dragging.current = true
+      setScrollbarDragging(true)
       onPan(targetMin, targetMin + viewRange, viewRange)
-      dragging.current = false
+      setScrollbarDragging(false)
     },
     [chartRef, fullMin, fullMax, onPan]
   )
