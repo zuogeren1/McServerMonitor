@@ -11,12 +11,13 @@ interface Props {
 }
 
 export function ServerCard({ server: s, showMotd }: Props) {
+  const currentPage = useUIStore((s) => s.currentPage)
   const setCurrentPage = useUIStore((s) => s.setCurrentPage)
   const pushNav = useUIStore((s) => s.pushNavigation)
   const setDetailServerId = useServerStore((s) => s.setDetailServerId)
 
   const openDetail = () => {
-    pushNav({ page: 'detail', detailServerId: s.server_id })
+    pushNav({ page: currentPage, detailServerId: undefined })
     setDetailServerId(s.server_id)
     setCurrentPage('detail')
   }

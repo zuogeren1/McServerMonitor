@@ -9,6 +9,7 @@ interface UIState {
   setCurrentPage: (page: string) => void
   pushNavigation: (entry: { page: string; detailServerId?: number }) => void
   popNavigation: () => { page: string; detailServerId?: number } | undefined
+  clearNavigation: () => void
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -30,4 +31,5 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({ navigationStack: stack.slice(0, -1) })
     return entry
   },
+  clearNavigation: () => set({ navigationStack: [] }),
 }))

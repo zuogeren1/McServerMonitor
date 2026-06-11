@@ -37,8 +37,10 @@ export function PlayersPage() {
   const filteredRegular = filterByName(regularPlayers)
   const filteredAnonymous = filterByName(anonymousPlayers)
 
+  const currentPage = useUIStore((s) => s.currentPage)
+
   const openDetail = (name: string) => {
-    pushNav({ page: 'player-detail' })
+    pushNav({ page: currentPage, detailServerId: undefined })
     setDetailName(name)
     setCurrentPage('player-detail')
   }

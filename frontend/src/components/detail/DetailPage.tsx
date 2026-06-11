@@ -6,7 +6,7 @@ import { RangeSelector } from './RangeSelector'
 import { HistoryChart } from './HistoryChart'
 import { ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { avatarUrl, esc } from '@/lib/utils'
 import { usePlayerStore } from '@/store/usePlayerStore'
 
@@ -62,8 +62,10 @@ export function DetailPage() {
     setPinned(ts ? { ts, players } : null)
   }, [])
 
+  const currentPage = useUIStore((s) => s.currentPage)
+
   const openPlayerDetail = (name: string) => {
-    pushNav({ page: 'player-detail' })
+    pushNav({ page: currentPage, detailServerId: detailServerId ?? undefined })
     setDetailName(name)
     setCurrentPage('player-detail')
   }

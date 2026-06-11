@@ -104,17 +104,18 @@ export function PlayerDetailPage() {
     } catch { /* ignore */ }
   }, [player])
 
+  const currentPage = useUIStore((s) => s.currentPage)
+
   const openServer = (serverId: number) => {
-    pushNav({ page: 'detail', detailServerId: serverId })
+    pushNav({ page: currentPage, detailServerId: undefined })
     setDetailServerId(serverId)
     setCurrentPage('detail')
   }
 
   const openServerRange = (serverId: number, startTs: number, endTs: number) => {
-    pushNav({ page: 'detail', detailServerId: serverId })
+    pushNav({ page: currentPage, detailServerId: undefined })
     setDetailServerId(serverId)
     setCurrentPage('detail')
-    // 通过 sessionStorage 传递自定义范围，DetailPage 读取后清除
     sessionStorage.setItem('detailCustomRange', JSON.stringify({ startTs, endTs }))
   }
 
