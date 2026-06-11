@@ -63,7 +63,7 @@ function PlayerBarChart({ data }: { data: number[] }) {
   return (
     <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4">
       <h3 className="font-semibold mb-3">24 小时在线时段</h3>
-      <div className="h-40">
+      <div className="h-56">
         <canvas ref={canvasRef} />
       </div>
     </div>
