@@ -4,12 +4,15 @@ import { fetchPlayerDetail, type PlayerDetail as PlayerDetailType } from '@/lib/
 import { avatarUrl, esc, formatDuration } from '@/lib/utils'
 import { useUIStore } from '@/store/useUIStore'
 import { usePlayerStore } from '@/store/usePlayerStore'
+import { useServerStore } from '@/store/useServerStore'
 import { ArrowLeft, Copy, Check } from 'lucide-react'
 
 export function PlayerDetailPage() {
   const detailName = usePlayerStore((s) => s.detailName)
   const popNav = useUIStore((s) => s.popNavigation)
   const setCurrentPage = useUIStore((s) => s.setCurrentPage)
+  const pushNav = useUIStore((s) => s.pushNavigation)
+  const setDetailServerId = useServerStore((s) => s.setDetailServerId)
 
   const [player, setPlayer] = useState<PlayerDetailType | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,6 +41,12 @@ export function PlayerDetailPage() {
     } catch { /* ignore */ }
   }, [player])
 
+  const openServer = (serverId: number) => {
+    pushNav({ page: 'detail', detailServerId: serverId })
+    setDetailServerId(serverId)
+    setCurrentPage('detail')
+  }
+
   if (loading) return <div className="p-6 text-(--color-muted)">加载中...</div>
   if (!player) return (
     <div className="p-6">
@@ -45,6 +54,8 @@ export function PlayerDetailPage() {
       <p className="text-(--color-muted) mt-4">未找到玩家</p>
     </div>
   )
+
+  const maxMin = Math.max(...player.hourly_minutes, 1)
 
   return (
     <div className="p-6">
@@ -63,26 +74,25 @@ export function PlayerDetailPage() {
           </div>
           <div className="text-sm text-(--color-muted) mt-1 space-y-0.5">
             {player.uuid && <div>UUID: {player.uuid}</div>}
-            <div>状态: {player.current_online ? '在线' : '离线'}</div>
-            <div>总在线时长: {formatDuration(player.total_time)}</div>
+            <div>状态: {player.online ? '在线' : '离线'}</div>
+            <div>总在线时长: {formatDuration(player.total_online_seconds)}</div>
           </div>
         </div>
       </div>
 
       {/* 24 小时分布 */}
-      {player.hourly_distribution && player.hourly_distribution.length > 0 && (
+      {player.hourly_minutes.length > 0 && (
         <div className="mb-6 rounded-lg bg-(--color-card) border border-(--color-border) p-4">
           <h3 className="font-semibold mb-3">24 小时在线时段</h3>
           <div className="h-40 flex items-end justify-between gap-px">
-            {player.hourly_distribution.map((b, i) => {
-              const max = Math.max(...player.hourly_distribution.map((x) => x.minutes), 1)
-              const pct = (b.minutes / max) * 100
+            {player.hourly_minutes.map((minutes, i) => {
+              const pct = (minutes / maxMin) * 100
               return (
                 <div key={i} className="flex-1 flex flex-col items-center">
                   <div
                     className="w-full rounded-t bg-(--color-accent)"
                     style={{ height: `${Math.max(pct, 1)}%`, opacity: pct > 0 ? 0.8 : 0.2 }}
-                    title={`${i}:00 — ${b.minutes} 分钟`}
+                    title={`${i}:00 — ${minutes} 分钟`}
                   />
                   {i % 4 === 0 && <span className="text-xs text-(--color-muted) mt-1">{i}</span>}
                 </div>
@@ -93,16 +103,21 @@ export function PlayerDetailPage() {
       )}
 
       {/* 最近游玩服务器 */}
-      {player.recent_servers && player.recent_servers.length > 0 && (
+      {player.recent_servers.length > 0 && (
         <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4">
           <h3 className="font-semibold mb-2">最近游玩服务器</h3>
           <div className="space-y-1 text-sm">
             {player.recent_servers.map((rs, i) => (
               <div key={i} className="flex justify-between">
-                <span className="cursor-pointer hover:text-(--color-accent)" onClick={() => {}}>
+                <span
+                  className="cursor-pointer hover:text-(--color-accent)"
+                  onClick={() => openServer(rs.server_id)}
+                >
                   {esc(rs.server_name)}
                 </span>
-                <span className="text-(--color-muted)">{rs.last_seen}</span>
+                <span className="text-(--color-muted)">
+                  {new Date(rs.login_time * 1000).toLocaleString('zh-CN')}
+                </span>
               </div>
             ))}
           </div>

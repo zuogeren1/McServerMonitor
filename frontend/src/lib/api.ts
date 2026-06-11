@@ -115,27 +115,23 @@ export interface PlayerInfo {
   name: string
   uuid: string | null
   online: boolean
+  first_seen: string | null
   last_seen: string | null
-  total_time: number
-  current_server_id: number | null
-  current_server_name: string | null
+  total_online_seconds: number
+  current_server: string
 }
 
 export interface PlayerDetail extends PlayerInfo {
-  current_online: boolean
   recent_servers: RecentServer[]
-  hourly_distribution: HourlyBucket[]
+  hourly_minutes: number[]
+  anon_count: number
 }
 
 export interface RecentServer {
   server_id: number
   server_name: string
-  last_seen: string
-}
-
-export interface HourlyBucket {
-  hour: number
-  minutes: number
+  login_time: number
+  logout_time: number | null
 }
 
 export interface AppConfig {
@@ -237,12 +233,12 @@ export function fetchPlayerListAtTime(
 export function fetchPlayers(
   filter?: string,
   sort?: string
-): Promise<{ players: PlayerInfo[]; anonymous_player?: { name: string; online: boolean; total_time: number } }> {
+): Promise<PlayerInfo[]> {
   const params = new URLSearchParams()
   if (filter) params.set('filter', filter)
   if (sort) params.set('sort', sort)
   const qs = params.toString()
-  return apiFetch(`/api/players${qs ? '?' + qs : ''}`)
+  return apiFetch<PlayerInfo[]>(`/api/players${qs ? '?' + qs : ''}`)
 }
 
 export function fetchPlayerDetail(name: string): Promise<PlayerDetail> {

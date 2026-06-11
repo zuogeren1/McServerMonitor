@@ -12,7 +12,7 @@ export function PlayerManagePage() {
   const loadPlayers = async () => {
     try {
       const data = await fetchPlayers()
-      setPlayers(data.players)
+      setPlayers(Array.isArray(data) ? data : [])
     } catch { /* ignore */ } finally {
       setLoading(false)
     }
@@ -54,7 +54,7 @@ export function PlayerManagePage() {
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{esc(p.name)}</div>
               </div>
-              <div className="text-sm text-(--color-muted)">{formatDuration(p.total_time)}</div>
+              <div className="text-sm text-(--color-muted)">{formatDuration(p.total_online_seconds)}</div>
               <Button variant="destructive" size="sm" onClick={() => handleDelete(p.name)}>删除</Button>
             </div>
           ))}

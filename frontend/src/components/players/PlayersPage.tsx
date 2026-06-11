@@ -9,7 +9,6 @@ import { usePlayerStore } from '@/store/usePlayerStore'
 
 export function PlayersPage() {
   const [players, setPlayers] = useState<PlayerInfo[]>([])
-  const [anonymousPlayer, setAnonymousPlayer] = useState<{ name: string; online: boolean; total_time: number } | null>(null)
   const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all')
   const [sort, setSort] = useState('name')
   const [search, setSearch] = useState('')
@@ -20,16 +19,23 @@ export function PlayersPage() {
   const loadPlayers = async () => {
     try {
       const data = await fetchPlayers(filter, sort)
-      setPlayers(data.players)
-      setAnonymousPlayer(data.anonymous_player ?? null)
+      setPlayers(Array.isArray(data) ? data : [])
     } catch { /* ignore */ }
   }
 
   useEffect(() => { loadPlayers() }, [filter, sort])
 
-  const filtered = players.filter((p) =>
-    search ? p.name.toLowerCase().includes(search.toLowerCase()) : true
-  )
+  // 分离匿名玩家
+  const regularPlayers = players.filter((p) => !p.name.includes(' '))
+  const anonymousPlayers = players.filter((p) => p.name.includes(' '))
+
+  const filterByName = (list: PlayerInfo[]) =>
+    search
+      ? list.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+      : list
+
+  const filteredRegular = filterByName(regularPlayers)
+  const filteredAnonymous = filterByName(anonymousPlayers)
 
   const openDetail = (name: string) => {
     pushNav({ page: 'player-detail' })
@@ -67,18 +73,24 @@ export function PlayersPage() {
         </Select>
       </div>
 
-      {/* 匿名玩家 */}
-      {anonymousPlayer && (
+      {/* 匿名玩家区域 */}
+      {filteredAnonymous.length > 0 && (
         <div className="mb-4 p-3 rounded border border-(--color-border) bg-(--color-hover)">
-          <span className="text-sm font-medium">{esc(anonymousPlayer.name)}</span>
-          <span className="text-xs text-(--color-muted) ml-2">
-            {formatDuration(anonymousPlayer.total_time)}
-          </span>
+          {filteredAnonymous.map((p) => (
+            <div key={p.name} className="flex items-center gap-3 px-2 py-1">
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium">{esc(p.name)}</span>
+              </div>
+              <span className="text-xs text-(--color-muted)">
+                {formatDuration(p.total_online_seconds)}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
       <div className="space-y-1">
-        {filtered.map((p) => (
+        {filteredRegular.map((p) => (
           <div
             key={p.name}
             className="flex items-center gap-3 px-3 py-2 rounded hover:bg-(--color-hover) cursor-pointer transition-colors"
@@ -91,12 +103,14 @@ export function PlayersPage() {
                 {p.online ? '在线' : `最后在线: ${p.last_seen ?? '--'}`}
               </div>
             </div>
-            <div className="text-sm text-(--color-muted) shrink-0">{formatDuration(p.total_time)}</div>
+            <div className="text-sm text-(--color-muted) shrink-0">
+              {formatDuration(p.total_online_seconds)}
+            </div>
           </div>
         ))}
       </div>
 
-      {filtered.length === 0 && (
+      {regularPlayers.length === 0 && anonymousPlayers.length === 0 && (
         <div className="text-center py-16 text-(--color-muted)">暂无玩家数据</div>
       )}
     </div>
