@@ -3,7 +3,6 @@ import type { AnyChartInstance } from './types'
 let _chartFullMin = 0
 let _chartFullMax = 0
 let _onUpdateScrollbar: ((leftPct: number, widthPct: number) => void) | null = null
-let _scrollbarDragging = false
 
 export function setChartBounds(min: number, max: number) {
   _chartFullMin = min
@@ -12,10 +11,6 @@ export function setChartBounds(min: number, max: number) {
 
 export function setScrollbarCallback(cb: ((leftPct: number, widthPct: number) => void) | null) {
   _onUpdateScrollbar = cb
-}
-
-export function setScrollbarDragging(v: boolean) {
-  _scrollbarDragging = v
 }
 
 export const scrollbarSyncPlugin = {
