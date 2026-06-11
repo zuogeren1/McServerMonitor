@@ -12,12 +12,13 @@ interface Props {
   range: string
   startTs?: number
   endTs?: number
-  onPointClick?: (ts: string, players: string[]) => void
+  onPointClick?: (ts: number, players: string[]) => void
 }
 
 export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef = useRef<AnyChartInstance | null>(null)
+  const historyDataRef = useRef<HistoryPoint[]>([])
   const [scrollbarPos, setScrollbarPos] = useState({ left: 0, width: 100 })
   const [fullRange, setFullRange] = useState({ min: 0, max: 0 })
 
@@ -42,6 +43,8 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
     }
 
     if (!Array.isArray(data) || data.length === 0) return
+
+    historyDataRef.current = data
 
     const labels = data.map((p) => p.timestamp * 1000)
     const values = data.map((p) => p.player_count)
@@ -129,15 +132,25 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
         },
         onClick: async (_event, elements) => {
           if (elements.length === 0) {
-            onPointClick?.('', [])
+            onPointClick?.(0, [])
             return
           }
           const el = elements[0].element as { $context?: { parsed: { x: number } } }
           const tsSec = el.$context?.parsed.x ? el.$context.parsed.x / 1000 : null
           if (!tsSec) return
+
+          // 优先使用 historyDataRef 中对应时间点的 player_list
+          const point = historyDataRef.current.find(
+            (d) => Math.abs(d.timestamp - tsSec) < 0.5
+          )
+          if (point && point.player_list.length > 0) {
+            onPointClick?.(point.timestamp, point.player_list)
+            return
+          }
+          // 回退到 API 查询（处理聚合数据 bucket 中 player_list 为空的情况）
           try {
             const res = await fetchPlayerListAtTime(serverId, String(tsSec))
-            onPointClick?.(String(tsSec), res.players || [])
+            onPointClick?.(Number(tsSec), res.players || [])
           } catch { /* ignore */ }
         },
       },
