@@ -6,6 +6,7 @@ import { RangeSelector } from './RangeSelector'
 import { HistoryChart } from './HistoryChart'
 import { ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PlayerNotifButton } from '@/components/layout/ServerNotifButton'
 import { useState, useCallback, useEffect } from 'react'
 import { avatarUrl, esc } from '@/lib/utils'
 import { usePlayerStore } from '@/store/usePlayerStore'
@@ -87,9 +88,12 @@ export function DetailPage() {
 
   return (
     <div className="p-6">
-      <Button variant="ghost" onClick={handleBack} className="mb-4">
-        <ArrowLeft size={16} className="mr-1" /> 返回
-      </Button>
+      <div className="flex items-center justify-between mb-4">
+        <Button variant="ghost" onClick={handleBack}>
+          <ArrowLeft size={16} className="mr-1" /> 返回
+        </Button>
+        <PlayerNotifButton serverId={server.server_id} hasRcon={server.has_rcon} />
+      </div>
 
       {/* 三卡片布局 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">

@@ -1,5 +1,6 @@
 import { StatsBar } from './StatsBar'
 import { ServerCard } from './ServerCard'
+import { ServerNotifButton } from '@/components/layout/ServerNotifButton'
 import { useServerStore } from '@/store/useServerStore'
 
 export function HomePage() {
@@ -8,8 +9,9 @@ export function HomePage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">概览</h2>
+        <ServerNotifButton />
       </div>
       <StatsBar />
       {total === 0 ? (
