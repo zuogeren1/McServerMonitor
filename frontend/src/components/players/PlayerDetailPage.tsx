@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { Chart } from 'chart.js'
 import { Button } from '@/components/ui/button'
 import { fetchPlayerDetail, type PlayerDetail as PlayerDetailType } from '@/lib/api'
 import { avatarUrl, esc, formatDuration } from '@/lib/utils'
@@ -6,6 +7,68 @@ import { useUIStore } from '@/store/useUIStore'
 import { usePlayerStore } from '@/store/usePlayerStore'
 import { useServerStore } from '@/store/useServerStore'
 import { ArrowLeft, Copy, Check } from 'lucide-react'
+
+function PlayerBarChart({ data }: { data: number[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const chartRef = useRef<Chart | null>(null)
+
+  useEffect(() => {
+    if (!canvasRef.current || data.length === 0) return
+    if (chartRef.current) chartRef.current.destroy()
+
+    const labels = Array.from({ length: 24 }, (_, i) => `${i}`)
+    const ctx = canvasRef.current.getContext('2d')!
+    chartRef.current = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: 'rgba(99,102,241,0.5)',
+          borderColor: '#6366f1',
+          borderWidth: 1,
+          borderRadius: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => `${items[0].label}:00`,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              label: (ctx: any) => `${ctx.parsed.y} 分钟`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#94a3b8', font: { size: 9 }, maxTicksLimit: 24 },
+            grid: { display: false },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#94a3b8', font: { size: 10 }, precision: 0 },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+          },
+        },
+      },
+    })
+
+    return () => { chartRef.current?.destroy(); chartRef.current = null }
+  }, [data])
+
+  return (
+    <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4">
+      <h3 className="font-semibold mb-3">24 小时在线时段</h3>
+      <div className="h-40">
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
+  )
+}
 
 export function PlayerDetailPage() {
   const detailName = usePlayerStore((s) => s.detailName)
@@ -55,8 +118,6 @@ export function PlayerDetailPage() {
     </div>
   )
 
-  const maxMin = Math.max(...player.hourly_minutes, 1)
-
   return (
     <div className="p-6">
       <Button variant="ghost" onClick={handleBack} className="mb-4">
@@ -80,25 +141,10 @@ export function PlayerDetailPage() {
         </div>
       </div>
 
-      {/* 24 小时分布 */}
+      {/* 24 小时分布柱状图 */}
       {player.hourly_minutes.length > 0 && (
-        <div className="mb-6 rounded-lg bg-(--color-card) border border-(--color-border) p-4">
-          <h3 className="font-semibold mb-3">24 小时在线时段</h3>
-          <div className="h-40 flex items-end justify-between gap-px">
-            {player.hourly_minutes.map((minutes, i) => {
-              const pct = (minutes / maxMin) * 100
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center">
-                  <div
-                    className="w-full rounded-t bg-(--color-accent)"
-                    style={{ height: `${Math.max(pct, 1)}%`, opacity: pct > 0 ? 0.8 : 0.2 }}
-                    title={`${i}:00 — ${minutes} 分钟`}
-                  />
-                  {i % 4 === 0 && <span className="text-xs text-(--color-muted) mt-1">{i}</span>}
-                </div>
-              )
-            })}
-          </div>
+        <div className="mb-6">
+          <PlayerBarChart data={player.hourly_minutes} />
         </div>
       )}
 
@@ -109,10 +155,7 @@ export function PlayerDetailPage() {
           <div className="space-y-1 text-sm">
             {player.recent_servers.map((rs, i) => (
               <div key={i} className="flex justify-between">
-                <span
-                  className="cursor-pointer hover:text-(--color-accent)"
-                  onClick={() => openServer(rs.server_id)}
-                >
+                <span className="cursor-pointer hover:text-(--color-accent)" onClick={() => openServer(rs.server_id)}>
                   {esc(rs.server_name)}
                 </span>
                 <span className="text-(--color-muted)">
