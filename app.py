@@ -32,7 +32,19 @@ from db import (
 )
 from mc_query import query_one_server
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend", "dist")
+USE_VITE = os.path.isdir(FRONTEND_DIR)
+
+if USE_VITE:
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(FRONTEND_DIR, "assets"),
+        template_folder=FRONTEND_DIR,
+    )
+else:
+    app = Flask(__name__)
+
 app.config["SECRET_KEY"] = secrets.token_hex(24)
 socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins=[])
 
@@ -137,8 +149,23 @@ def poll_loop():
 
 @app.route("/")
 def index():
+    if USE_VITE:
+        from flask import send_from_directory
+        return send_from_directory(FRONTEND_DIR, "index.html")
     return render_template("index.html")
 
+
+# Vite 构建模式下，根目录静态文件（favicon.svg 等）需要单独服务
+# 注意：此 catch-all 仅用于非 API 路径，API 路由在下方定义且有更高优先级
+if USE_VITE:
+    @app.route("/<path:filename>")
+    def vite_root_static(filename: str):
+        # 不拦截 API 和 Socket.IO 路径
+        if filename.startswith("api/") or filename.startswith("socket.io"):
+            from flask import abort
+            abort(404)
+        from flask import send_from_directory
+        return send_from_directory(FRONTEND_DIR, filename)
 
 @app.route("/api/status")
 def api_status():
