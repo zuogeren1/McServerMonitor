@@ -85,9 +85,8 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
         return
       }
 
-      // 首次创建
-      const activePlugins: Plugin[] = [crosshairPlugin as Plugin]
-      if (!isR) activePlugins.push(scrollbarSyncPlugin as Plugin)
+      // 首次创建——始终包含两个插件，scrollbarSyncPlugin 仅影响状态更新
+      const activePlugins: Plugin[] = [crosshairPlugin as Plugin, scrollbarSyncPlugin as Plugin]
 
       const ctx = canvasRef.current!.getContext('2d')!
       chartRef.current = new Chart(ctx, {
