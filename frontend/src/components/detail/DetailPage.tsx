@@ -52,6 +52,7 @@ export function DetailPage() {
     return undefined
   })
   const [pinned, setPinned] = useState<{ ts: number; players: string[] } | null>(null)
+  const [chartKey, setChartKey] = useState(0)
 
   const handleBack = () => {
     const prev = popNav()
@@ -61,6 +62,7 @@ export function DetailPage() {
   const handleRangeChange = (newRange: string, start?: number, end?: number) => {
     setPinned(null)
     setRange(newRange)
+    setChartKey(k => k + 1)
     if (newRange === 'custom' && start && end) {
       setCustomStart(start)
       setCustomEnd(end)
@@ -145,9 +147,17 @@ export function DetailPage() {
 
       {/* 图表区域 */}
       <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4">
-        <RangeSelector range={range} onRangeChange={handleRangeChange} />
+        <div className="flex items-center justify-between">
+          <RangeSelector range={range} onRangeChange={handleRangeChange} />
+          {range !== '15m' && (
+            <Button variant="outline" size="sm" onClick={() => setChartKey(k => k + 1)}>
+              重置缩放
+            </Button>
+          )}
+        </div>
         <div className="mt-4">
           <HistoryChart
+            key={chartKey}
             serverId={server.server_id}
             range={range}
             startTs={customStart}

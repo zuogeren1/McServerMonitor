@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import type { MutableRefObject } from 'react'
 import type { AnyChartInstance } from '@/plugins/chart/types'
+import { setScrollbarDragging } from '@/plugins/chart/scrollbarSync'
 
 interface Props {
   chartRef: MutableRefObject<AnyChartInstance | null>
@@ -41,6 +42,7 @@ export function ChartScrollbar({ chartRef, leftPct, widthPct, onPan, fullMin, fu
 
     const onDragStart = (e: MouseEvent | TouchEvent) => {
       dragging.current = true
+      setScrollbarDragging(true)
       startX.current = getClientX(e)
       startLeftPct.current = parseFloat(thumb.style.left || '0')
       e.preventDefault()
@@ -64,7 +66,7 @@ export function ChartScrollbar({ chartRef, leftPct, widthPct, onPan, fullMin, fu
       applyPan(Math.max(0, Math.min(100 - w, startLeftPct.current + dxPct)))
     }
 
-    const onEnd = () => { dragging.current = false }
+    const onEnd = () => { dragging.current = false; setScrollbarDragging(false) }
 
     thumb.addEventListener('mousedown', onDragStart)
     thumb.addEventListener('touchstart', onDragStart, { passive: false })
