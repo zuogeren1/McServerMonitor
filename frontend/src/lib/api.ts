@@ -118,8 +118,8 @@ export interface PlayerInfo {
   name: string
   uuid: string | null
   online: boolean
-  first_seen: string | null
-  last_seen: string | null
+  first_seen: number | null
+  last_seen: number | null
   total_online_seconds: number
   current_server: string
 }

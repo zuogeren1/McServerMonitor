@@ -63,7 +63,7 @@ export function PlayersPage() {
         />
         <Select value={sort} onValueChange={(v) => setSort(v ?? 'name')}>
           <SelectTrigger className="w-32">
-            <SelectValue />
+            <SelectValue>{sort === 'name' ? '名称' : sort === 'last_seen' ? '最后在线' : '在线时长'}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="name">名称</SelectItem>
@@ -100,7 +100,7 @@ export function PlayersPage() {
             <div className="flex-1 min-w-0">
               <div className="font-medium text-sm truncate">{esc(p.name)}</div>
               <div className="text-xs text-(--color-muted)">
-                {p.online ? '在线' : `最后在线: ${p.last_seen ?? '--'}`}
+                {p.online ? '在线' : `最后在线: ${p.last_seen ? new Date(p.last_seen * 1000).toLocaleString('zh-CN') : '--'}`}
               </div>
             </div>
             <div className="text-sm text-(--color-muted) shrink-0">
