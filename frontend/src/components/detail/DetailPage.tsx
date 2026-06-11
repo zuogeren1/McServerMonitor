@@ -6,7 +6,7 @@ import { RangeSelector } from './RangeSelector'
 import { HistoryChart } from './HistoryChart'
 import { ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { avatarUrl, esc } from '@/lib/utils'
 import { usePlayerStore } from '@/store/usePlayerStore'
 
@@ -23,7 +23,6 @@ export function DetailPage() {
   const [customStart, setCustomStart] = useState<number | undefined>()
   const [customEnd, setCustomEnd] = useState<number | undefined>()
   const [pinned, setPinned] = useState<{ ts: number; players: string[] } | null>(null)
-  const chartKeyRef = useRef(0)
 
   const handleBack = () => {
     const prev = popNav()
@@ -33,7 +32,6 @@ export function DetailPage() {
   const handleRangeChange = (newRange: string, start?: number, end?: number) => {
     setPinned(null)
     setRange(newRange)
-    chartKeyRef.current++
     if (newRange === 'custom' && start && end) {
       setCustomStart(start)
       setCustomEnd(end)
@@ -77,9 +75,7 @@ export function DetailPage() {
       {/* 三卡片布局 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* 服务器信息卡片 */}
-        <div className="lg:col-span-2">
-          <ServerInfoPanel server={server} />
-        </div>
+        <ServerInfoPanel server={server} />
 
         {/* 在线玩家卡片 */}
         <div className="rounded-lg bg-(--color-card) border border-(--color-border) p-4">
@@ -115,9 +111,7 @@ export function DetailPage() {
         </div>
 
         {/* 副地址卡片 */}
-        <div className="lg:col-span-3">
-          <BackupStatusPanel server={server} />
-        </div>
+        <BackupStatusPanel server={server} />
       </div>
 
       {/* 图表区域 */}
@@ -125,7 +119,6 @@ export function DetailPage() {
         <RangeSelector range={range} onRangeChange={handleRangeChange} />
         <div className="mt-4">
           <HistoryChart
-            key={`${chartKeyRef.current}`}
             serverId={server.server_id}
             range={range}
             startTs={customStart}
