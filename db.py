@@ -204,9 +204,7 @@ def _dedup_history_player_list(db):
             else:
                 prev_list = row[1]
         for rid in to_update:
-            db.execute(
-                "UPDATE history SET player_list='[]' WHERE id=?", (rid,)
-            )
+            db.execute("UPDATE history SET player_list='[]' WHERE id=?", (rid,))
         total += len(to_update)
     if total:
         print(f"[init_db] Deduplicated {total} history player_list entries")

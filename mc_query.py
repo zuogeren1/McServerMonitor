@@ -100,57 +100,66 @@ def _convert_motd_line(text: str) -> str:
     return "".join(result)
 
 
-def try_single_address(
-    host: str, port: int | None, timeout: float = 1.0, server_type: str = "java"
-) -> dict | None:
-    try:
-        addr = host if port is None else f"{host}:{port}"
-        if server_type == "bedrock":
-            srv = BedrockServer.lookup(addr, timeout=timeout)
-            st = srv.status()
-            return {
-                "online": True,
-                "host": host,
-                "port": port,
-                "version": st.version.name,
-                "protocol": st.version.protocol,
-                "brand": getattr(st.version, "brand", ""),
-                "motd": st.motd.to_plain(),
-                "motd_html": html_escape(st.motd.to_plain()),
-                "latency": round(st.latency, 1),
-                "players": {
-                    "online": st.players.online,
-                    "max": st.players.max,
-                    "list": [],
-                },
-                "map_name": getattr(st, "map_name", None) or "",
-                "gamemode": getattr(st, "gamemode", None) or "",
-                "icon": None,
-                "error": None,
-            }
-        srv = JavaServer.lookup(addr, timeout=timeout)
+def _query_address_once(
+    host: str, port: int | None, timeout: float, server_type: str
+) -> dict:
+    addr = host if port is None else f"{host}:{port}"
+    if server_type == "bedrock":
+        srv = BedrockServer.lookup(addr, timeout=timeout)
         st = srv.status()
-        players = st.players
-        sample = sorted((players.sample or []), key=lambda p: p.name.lower())
         return {
             "online": True,
             "host": host,
             "port": port,
             "version": st.version.name,
             "protocol": st.version.protocol,
+            "brand": getattr(st.version, "brand", ""),
             "motd": st.motd.to_plain(),
-            "motd_html": motd_to_html(st.motd),
+            "motd_html": html_escape(st.motd.to_plain()),
             "latency": round(st.latency, 1),
             "players": {
-                "online": players.online,
-                "max": players.max,
-                "list": [{"name": p.name, "id": p.id or None} for p in sample],
+                "online": st.players.online,
+                "max": st.players.max,
+                "list": [],
             },
-            "icon": st.icon,
+            "map_name": getattr(st, "map_name", None) or "",
+            "gamemode": getattr(st, "gamemode", None) or "",
+            "icon": None,
             "error": None,
         }
-    except Exception:
-        return None
+    srv = JavaServer.lookup(addr, timeout=timeout)
+    st = srv.status()
+    players = st.players
+    sample = sorted((players.sample or []), key=lambda p: p.name.lower())
+    return {
+        "online": True,
+        "host": host,
+        "port": port,
+        "version": st.version.name,
+        "protocol": st.version.protocol,
+        "motd": st.motd.to_plain(),
+        "motd_html": motd_to_html(st.motd),
+        "latency": round(st.latency, 1),
+        "players": {
+            "online": players.online,
+            "max": players.max,
+            "list": [{"name": p.name, "id": p.id or None} for p in sample],
+        },
+        "icon": st.icon,
+        "error": None,
+    }
+
+
+def try_single_address(
+    host: str, port: int | None, timeout: float = 1.0, server_type: str = "java"
+) -> dict | None:
+    for attempt in range(3):
+        try:
+            return _query_address_once(host, port, timeout, server_type)
+        except Exception:
+            if attempt < 2:
+                eventlet.sleep(0.5)
+    return None
 
 
 def _rcon_send(sock, req_id, cmd_type, payload):

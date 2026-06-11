@@ -87,10 +87,17 @@ def login_required(f):
 # ---- Poll Loop ----
 def _query_single_server(server_info):
     """查询单台服务器并写入数据库（供 GreenPool 并行调用）"""
-    status = query_one_server(server_info)
-    server_statuses[server_info["id"]] = status
-    save_history(server_info["id"], status)
-    track_players(server_info["id"], status["server_name"], status["players"]["list"])
+    try:
+        status = query_one_server(server_info)
+        server_statuses[server_info["id"]] = status
+        save_history(server_info["id"], status)
+        track_players(
+            server_info["id"], status["server_name"], status["players"]["list"]
+        )
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
 
 
 def query_all_servers():
@@ -111,7 +118,12 @@ def poll_loop():
     global _cleanup_counter
     while True:
         t0 = time.time()
-        query_all_servers()
+        try:
+            query_all_servers()
+        except Exception:
+            import traceback
+
+            traceback.print_exc()
         _cleanup_counter += 1
         if _cleanup_counter >= 100:
             cleanup_old_history()

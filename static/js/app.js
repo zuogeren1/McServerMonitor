@@ -686,7 +686,7 @@ function editServer(sid) {
           ? rconHost + ":" + rconPort
           : rconHost
         : "";
-        document.getElementById("srvRconPassword").value = "";
+      document.getElementById("srvRconPassword").value = "";
       document.getElementById("srvRconPassword").placeholder = s.has_rcon
         ? "已设置，留空不修改"
         : "RCON 密码";
