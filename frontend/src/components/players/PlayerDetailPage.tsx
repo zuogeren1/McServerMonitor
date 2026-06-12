@@ -39,7 +39,14 @@ function PlayerBarChart({ data }: { data: number[] }) {
             callbacks: {
               title: (items) => `${items[0].label}:00`,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              label: (ctx: any) => `${ctx.parsed.y} 分钟`,
+              label: (ctx: any) => {
+                const m = ctx.parsed.y as number
+                if (m < 60) return `${m} 分`
+                const h = Math.floor(m / 60)
+                const remain = Math.round(m % 60)
+                if (remain === 0) return `${h} 小时`
+                return `${h} 小时 ${remain} 分`
+              },
             },
           },
         },
