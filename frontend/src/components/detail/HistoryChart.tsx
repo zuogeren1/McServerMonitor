@@ -149,8 +149,8 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
       if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list, pt.player_count); return }
       try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), Array.isArray(r) ? r : [], r.length) } catch { /* */ }
     }
-    canvas.addEventListener('click', handleClick)
-    return () => canvas.removeEventListener('click', handleClick)
+    canvas.addEventListener('click', handleClick, true)
+    return () => canvas.removeEventListener('click', handleClick, true)
   }, [serverId, onPointClick])
 
   // 15m 实时轮询
