@@ -12,7 +12,7 @@ interface Props {
   range: string
   startTs?: number
   endTs?: number
-  onPointClick?: (ts: number, players: string[]) => void
+  onPointClick?: (ts: number, players: string[], totalCount: number) => void
 }
 
 function buildPointData(data: HistoryPoint[]) {
@@ -107,13 +107,13 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
             y: { beginAtZero: true, max: yMax, ticks: { color: '#94a3b8', precision: 0, font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
           },
           onClick: async (_event, elements) => {
-            if (elements.length === 0) { onPointClick?.(0, []); return }
+            if (elements.length === 0) { onPointClick?.(0, [], 0); return }
             const el = elements[0].element as { $context?: { parsed: { x: number } } }
             const tsSec = el.$context?.parsed.x ? el.$context.parsed.x / 1000 : null
             if (!tsSec) return
             const pt = historyDataRef.current.find((d) => Math.abs(d.timestamp - tsSec) < 0.5)
-            if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list); return }
-            try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), Array.isArray(r) ? r : []) } catch { /* */ }
+            if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list, pt.player_count); return }
+            try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), Array.isArray(r) ? r : [], r.length) } catch { /* */ }
           },
         },
         plugins: activePlugins,
@@ -141,13 +141,13 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
       const chart = chartRef.current
       if (!chart) return
       const points = chart.getElementsAtEventForMode(e as unknown as Event, 'index', { intersect: false }, false)
-      if (points.length === 0) { onPointClick?.(0, []); return }
+      if (points.length === 0) { onPointClick?.(0, [], 0); return }
       const tsMs = (points[0].element as { $context?: { parsed: { x: number } } }).$context?.parsed.x
       if (!tsMs) return
       const tsSec = tsMs / 1000
       const pt = historyDataRef.current.find((d) => Math.abs(d.timestamp - tsSec) < 0.5)
-      if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list); return }
-      try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), Array.isArray(r) ? r : []) } catch { /* */ }
+      if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list, pt.player_count); return }
+      try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), Array.isArray(r) ? r : [], r.length) } catch { /* */ }
     }
     canvas.addEventListener('click', handleClick)
     return () => canvas.removeEventListener('click', handleClick)

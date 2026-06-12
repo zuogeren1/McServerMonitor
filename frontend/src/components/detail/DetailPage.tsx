@@ -24,7 +24,7 @@ export function DetailPage() {
   const [range, setRange] = useState('15m')
   const [customStart, setCustomStart] = useState<number | undefined>()
   const [customEnd, setCustomEnd] = useState<number | undefined>()
-  const [pinned, setPinned] = useState<{ ts: number; players: string[] } | null>(null)
+  const [pinned, setPinned] = useState<{ ts: number; players: string[]; totalCount: number } | null>(null)
 
   // 监听 detailServerId——当玩家详情页跳转过来时读取 sessionStorage 自定义范围
   useEffect(() => {
@@ -59,8 +59,8 @@ export function DetailPage() {
     }
   }, [])
 
-  const handlePointClick = useCallback((ts: number, players: string[]) => {
-    setPinned(ts ? { ts, players } : null)
+  const handlePointClick = useCallback((ts: number, players: string[], totalCount: number) => {
+    setPinned(ts ? { ts, players, totalCount } : null)
   }, [])
 
   const currentPage = useUIStore((s) => s.currentPage)
@@ -181,7 +181,7 @@ export function DetailPage() {
                 <X size={14} />
               </Button>
             </div>
-            {pinned.players.length === 0 ? (
+            {pinned.players.length === 0 && pinned.totalCount <= 0 ? (
               <p className="text-xs text-(--color-muted)">无在线玩家</p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -191,6 +191,11 @@ export function DetailPage() {
                     <span>{esc(name)}</span>
                   </div>
                 ))}
+                {pinned.totalCount > pinned.players.length && (
+                  <span className="flex items-center px-2 py-1 rounded bg-(--color-card) text-sm opacity-50 border border-dashed border-(--color-border)">
+                    还有 {pinned.totalCount - pinned.players.length} 位玩家
+                  </span>
+                )}
               </div>
             )}
           </div>
