@@ -85,6 +85,7 @@ export function DetailPage() {
   const playerList = server.players.list || []
   const normalPlayers = playerList.filter((p) => !(p.name || '').includes(' '))
   const anonCount = playerList.filter((p) => (p.name || '').includes(' ')).length
+  const hiddenCount = server.players.online - playerList.length
 
   return (
     <div className="p-6">
@@ -128,6 +129,11 @@ export function DetailPage() {
                 >
                   <span>Anonymous Player x{anonCount}</span>
                 </button>
+              )}
+              {hiddenCount > 0 && (
+                <span className="flex items-center px-2 py-1 rounded-md text-sm opacity-50 border border-dashed border-(--color-border)">
+                  还有 {hiddenCount} 位玩家
+                </span>
               )}
             </div>
           )}
