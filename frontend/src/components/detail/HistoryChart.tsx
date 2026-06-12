@@ -133,6 +133,26 @@ export function HistoryChart({ serverId, range, startTs, endTs, onPointClick }: 
     }
   }, [])
 
+  // 图表点击事件——直接用 canvas 监听避免被 zoom plugin 拦截
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const handleClick = async (e: MouseEvent) => {
+      const chart = chartRef.current
+      if (!chart) return
+      const points = chart.getElementsAtEventForMode(e as unknown as Event, 'index', { intersect: false }, false)
+      if (points.length === 0) { onPointClick?.(0, []); return }
+      const tsMs = (points[0].element as { $context?: { parsed: { x: number } } }).$context?.parsed.x
+      if (!tsMs) return
+      const tsSec = tsMs / 1000
+      const pt = historyDataRef.current.find((d) => Math.abs(d.timestamp - tsSec) < 0.5)
+      if (pt?.player_list.length) { onPointClick?.(pt.timestamp, pt.player_list); return }
+      try { const r = await fetchPlayerListAtTime(serverId, String(tsSec)); onPointClick?.(Number(tsSec), Array.isArray(r) ? r : []) } catch { /* */ }
+    }
+    canvas.addEventListener('click', handleClick)
+    return () => canvas.removeEventListener('click', handleClick)
+  }, [serverId, onPointClick])
+
   // 15m 实时轮询
   useEffect(() => {
     if (range !== '15m') return
