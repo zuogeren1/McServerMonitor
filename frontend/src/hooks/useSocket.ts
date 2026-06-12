@@ -72,4 +72,7 @@ function updateFavicon(statuses: ReturnType<typeof useServerStore.getState>['sta
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(String(onlineCount), 32, 32)
+
+  const favicon = document.getElementById('favicon') as HTMLLinkElement | null
+  if (favicon) favicon.href = canvas.toDataURL()
 }
