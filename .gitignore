@@ -27,4 +27,7 @@ Thumbs.db
 .claude/
 CLAUDE.md
 
+# React frontend (frontend-refactor branch only)
+frontend/
+
 #powershell
