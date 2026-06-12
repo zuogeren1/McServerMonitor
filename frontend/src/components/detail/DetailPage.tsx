@@ -106,9 +106,10 @@ export function DetailPage() {
           <h3 className="font-semibold mb-3">
             在线玩家 <span className="text-(--color-muted) font-normal">({server.players.online} / {server.players.max})</span>
           </h3>
-          {normalPlayers.length === 0 && anonCount === 0 ? (
+          {normalPlayers.length === 0 && anonCount === 0 && hiddenCount <= 0 && (
             <p className="text-sm text-(--color-muted)">暂无在线玩家</p>
-          ) : (
+          )}
+          {(normalPlayers.length > 0 || anonCount > 0) && (
             <div className="flex flex-wrap gap-2">
               {normalPlayers.map((p) => (
                 <button
@@ -135,6 +136,13 @@ export function DetailPage() {
                   还有 {hiddenCount} 位玩家
                 </span>
               )}
+            </div>
+          )}
+          {hiddenCount > 0 && normalPlayers.length === 0 && anonCount === 0 && (
+            <div className="flex flex-wrap gap-2">
+              <span className="flex items-center px-2 py-1 rounded-md text-sm opacity-50 border border-dashed border-(--color-border)">
+                还有 {hiddenCount} 位玩家
+              </span>
             </div>
           )}
         </div>
